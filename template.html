@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<title>Orçamento</title>
+<style>
+  @page { size: A4 portrait; margin: 12mm; }
+  html,body { font-family: Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box; -webkit-text-size-adjust:none; }
+  *,*:before,*:after { box-sizing:inherit; }
+
+  /* cabeçalho do documento (não repetir) */
+  .doc-header { padding-bottom:6px; border-bottom:1px solid #eee; margin-bottom:6px; }
+  .company-info h1 { font-size:14pt; margin:0; }
+  .company-info p { margin:2px 0; font-size:8.5pt; }
+
+  .meta { width:100%; border-collapse:collapse; margin:6px 0; }
+  .meta td { padding:2px 4px; vertical-align:top; }
+  .meta .left { font-weight:700; font-size:11pt; }
+  .meta .right { text-align:right; font-size:8.5pt; }
+
+  .section-title { font-weight:700; font-size:10pt; margin:8px 0 6px 0; border-bottom:1px solid #eee; padding-bottom:3px; }
+
+  .info-box table { width:100%; border-collapse:collapse; }
+  .info-box td { padding:3px 4px; vertical-align:top; font-size:8.5pt; }
+  .info-box .label { font-weight:700; white-space:nowrap; width:120px; }
+
+  /* tabela de itens: thead aqui repete em cada página automaticamente */
+  .items-table { width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
+  .items-table thead th { background:#f7f7f7; padding:6px; font-size:9pt; text-align:left; border-bottom:1px solid #ddd; }
+  .items-table thead th.text-right { text-align:right; }
+  .items-table tbody td { padding:6px; border-bottom:1px solid #eee; vertical-align:top; font-size:9pt; }
+  .items-table tbody tr, .items-table tbody td { page-break-inside:avoid; break-inside:avoid; }
+  .item-desc { font-weight:700; margin:0 0 4px 0; }
+  .item-sub { margin:0; font-size:8pt; color:#555; line-height:1.3; }
+
+  .items-table tfoot td { padding:6px; font-weight:700; background:#fafafa; border-top:1px solid #ddd; text-align:right; }
+
+  /* totais */
+  .summary { width:100%; margin-top:8px; border-collapse:collapse; font-size:9pt; }
+  .summary td { padding:4px 6px; }
+
+  /* rodapé fixo */
+  .pdf-footer {
+    position: fixed;
+    bottom: 10mm;
+    left: 12mm;
+    right: 12mm;
+    text-align:center;
+    font-size:8pt;
+    color:#666;
+  }
+
+  /* evitar margens automáticas que “esticam” a área do header */
+  h1, p { margin: 0; padding: 0; }
+
+  /* quebra de palavras longas em células */
+  td { word-break:break-word; hyphens:auto; }
+</style>
+</head>
+<body>
+
+  <!-- CABEÇALHO (bloco normal, NÃO thead do wrapper) -->
+  <div class="doc-header">
+    <div class="company-info">
+      <h1>{{ empresa.nome }}</h1>
+      <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+      <p>Contato: {{ empresa.contato }}</p>
+    </div>
+  </div>
+
+  <!-- METADADOS -->
+  <table class="meta">
+    <tr>
+      <td class="left">Orçamento N°: {{ orcamento_numero }}</td>
+      <td class="right"><div><strong>Data:</strong> {{ data_emissao }}</div><div><strong>Vendedor:</strong> {{ vendedor }}</div></td>
+    </tr>
+  </table>
+
+  <div class="section-title">Dados do Cliente</div>
+  <div class="info-box">
+    <table>
+      <tr>
+        <td class="label">Razão Social:</td> <td>{{ cliente.razao_social }}</td>
+        <td class="label">CNPJ:</td> <td>{{ cliente.cnpj }}</td>
+      </tr>
+      <tr>
+        <td class="label">Endereço:</td> <td>{{ cliente.endereco }}, {{ cliente.bairro }}</td>
+        <td class="label">Inscrição Est.:</td> <td>{{ cliente.inscricao_estadual }}</td>
+      </tr>
+      <tr>
+        <td class="label">Cidade:</td> <td>{{ cliente.cidade }} - {{ cliente.uf }}</td>
+        <td class="label">Contato:</td> <td>{{ cliente.contato }} ({{ cliente.telefone }})</td>
+      </tr>
+      <tr>
+        <td class="label">CEP:</td> <td>{{ cliente.cep }}</td>
+        <td class="label">E-mail:</td> <td>{{ cliente.email }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="section-title">Itens do Orçamento</div>
+
+  <!-- TABELA DE ITENS: thead vai repetir em cada página -->
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th style="width:78%;">Descrição do Produto</th>
+        <th class="text-right" style="width:22%;">Total s/ IPI</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in itens %}
+      <tr>
+        <td>
+          <div class="item-desc">{{ item.descricao }}</div>
+          <div class="item-sub">
+            <strong>Medida:</strong> {{ item.medida }} |
+            <strong>Cor:</strong> {{ item.cor_codigo }} |
+            <strong>Acab:</strong> {{ item.acabamento }} |
+            <strong>Filme:</strong> {{ item.filme }}
+          </div>
+          <div class="item-sub">{{ "%.2f"|format(item.quantidade_kg) }} KG × R$ {{ "%.2f"|format(item.valor_kg) }} (IPI: {{ "%.2f"|format(item.ipi_item) }}%)</div>
+        </td>
+        <td style="text-align:right;">R$ {{ "%.2f"|format(item.quantidade_kg * item.valor_kg) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td style="text-align:left;">Total das Mercadorias</td>
+        <td style="text-align:right;">R$ {{ "%.2f"|format(totais.valor_mercadoria) }}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <table class="summary">
+    <tr>
+      <td class="summary-label">Base Cálculo ICMS:</td><td style="text-align:right;">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td>
+      <td class="summary-label">ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td><td style="text-align:right;">(informativo)</td>
+    </tr>
+    <tr>
+      <td class="summary-label">Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td><td style="text-align:right;">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td>
+      <td class="summary-label">Total NF:</td><td style="text-align:right;"><strong>R$ {{ "%.2f"|format(totais.total_nf) }}</strong></td>
+    </tr>
+  </table>
+
+  <div class="section-title">Condições de Pagamento e Entrega</div>
+  <div class="info-box">
+    <table>
+      <tr>
+        <td class="label">Cond. Pagto:</td> <td>{{ pagamento.condicao }}</td>
+        <td class="label">Qtde de Parcelas:</td> <td>{{ pagamento.qtde_parcelas }}</td>
+      </tr>
+      <tr>
+        <td class="label">Data de Entrega:</td> <td>{{ pagamento.data_entrega }}</td>
+        <td class="label">Valor da Parcela:</td> <td>R$ {{ "%.2f"|format(pagamento.valor_parcela) }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="section-title">Transportadora e Observações</div>
+  <div class="info-box">
+    <table>
+      <tr>
+        <td class="label">Transportadora:</td><td>{{ transportadora.nome }}</td>
+        <td class="label">CNPJ:</td><td>{{ transportadora.cnpj }}</td>
+        <td class="label">Telefone:</td><td>{{ transportadora.telefone }}</td>
+      </tr>
+      <tr>
+        <td class="label">Obs:</td><td colspan="5">{{ observacoes }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- rodapé fixo (repetível em muitas engines) -->
+  <div class="pdf-footer">
+    {{ empresa.nome }} — Página <span class="page">1</span>
+  </div>
+
+</body>
+</html>
