@@ -60,13 +60,27 @@
 <body>
 
   <!-- CABEÇALHO (bloco normal, NÃO thead do wrapper) -->
-  <div class="doc-header">
-    <div class="company-info">
-      <h1>{{ empresa.nome }}</h1>
-      <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
-      <p>Contato: {{ empresa.contato }}</p>
-    </div>
-  </div>
+<div class="company-info">
+  {% if empresa.nome == "Isoforma" %}
+    <table style="width:100%;">
+      <tr>
+        <td style="width:80px; vertical-align:middle;">
+          <img src="logo_isoforma.jpg" alt="Logo Isoforma" style="width:80px; height:auto;">
+        </td>
+        <td>
+          <h1>{{ empresa.nome }}</h1>
+          <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+          <p>Contato: {{ empresa.contato }}</p>
+        </td>
+      </tr>
+    </table>
+  {% else %}
+    <h1>{{ empresa.nome }}</h1>
+    <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+    <p>Contato: {{ empresa.contato }}</p>
+  {% endif %}
+</div>
+
 
   <!-- METADADOS -->
   <table class="meta">
