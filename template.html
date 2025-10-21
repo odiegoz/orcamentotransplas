@@ -62,12 +62,12 @@
   <!-- CABEÇALHO (bloco normal, NÃO thead do wrapper) -->
 <div class="company-info">
   {% if empresa.nome == "Isoforma" %}
-    <table style="width:100%;">
+    <table style="width: 100%; border-collapse: collapse;">
       <tr>
-        <td style="width:80px; vertical-align:middle;">
-          <img src="logo_isoforma.jpg" alt="Logo Isoforma" style="width:80px; height:auto;">
+        <td style="width: 80px; vertical-align: middle; padding: 0;">
+          <img src="logo_isoforma.jpg" alt="Logo Isoforma" style="width: 80px; height: auto; display: block;">
         </td>
-        <td>
+        <td style="vertical-align: middle; padding: 0 0 0 8px;">
           <h1>{{ empresa.nome }}</h1>
           <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
           <p>Contato: {{ empresa.contato }}</p>
@@ -80,7 +80,6 @@
     <p>Contato: {{ empresa.contato }}</p>
   {% endif %}
 </div>
-
 
   <!-- METADADOS -->
   <table class="meta">
