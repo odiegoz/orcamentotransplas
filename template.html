@@ -61,7 +61,7 @@
 
   <!-- CABEÇALHO (bloco normal, NÃO thead do wrapper) -->
 <div class="company-info">
-  {% if empresa.nome|upper == "ISOFORMA" %}
+  {% if empresa.nome|upper.startswith("ISOFORMA") %}
     <table style="width: 100%; border-collapse: collapse;">
       <tr>
         <td style="width: 80px; vertical-align: middle; padding: 0;">
