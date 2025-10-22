@@ -18,12 +18,19 @@
 
   .section-title { font-weight:700; font-size:10pt; margin:8px 0 6px 0; border-bottom:1px solid #eee; padding-bottom:3px; }
 
-  /* --- CORREÇÃO DE LAYOUT --- */
-  /* Tabela de 2 colunas simples e robusta */
-  .info-box table { width:100%; border-collapse:collapse; }
-  .info-box td { padding:3px 4px; vertical-align:top; font-size:8.5pt; }
-  /* O Rótulo (label) agora tem uma largura fixa para alinhar */
-  .info-box .label { font-weight:700; white-space:nowrap; width:130px; } 
+  /* --- CORREÇÃO DE LAYOUT: Trocando tabelas por <div>s --- */
+  .info-box-simple div { 
+    padding-bottom: 3px; 
+    font-size: 8.5pt; 
+    line-height: 1.3;
+  }
+  .info-box-simple strong {
+    font-weight: 700;
+    width: 130px; /* Largura fixa para o rótulo */
+    display: inline-block; /* Permite que o texto flua ao lado */
+    white-space: nowrap;
+    vertical-align: top;
+  }
   /* --- FIM DA CORREÇÃO --- */
 
   .items-table { width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
@@ -50,9 +57,9 @@
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
     <table style="width: 100%; border-collapse: collapse;">
       <tr>
-        <!-- CORREÇÃO DA LOGO: Usando atributo width="80" e max-height no style -->
-        <td style="width: 80px; vertical-align: top; padding: 0;">
-          <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" width="80" style="max-height: 50px;">
+        <!-- CORREÇÃO DA LOGO: Forçando width e style, removendo max-height -->
+        <td style="width: 80px; max-width: 80px; vertical-align: top; padding: 0;">
+          <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" width="80" style="width: 80px; height: auto;">
         </td>
         <td style="vertical-align: top; padding: 0 0 0 8px;">
           <h1>{{ empresa.nome }}</h1>
@@ -76,37 +83,17 @@
   </table>
 
   <div class="section-title">Dados do Cliente</div>
-  <!-- CORREÇÃO DE LAYOUT: Tabela de 2 colunas -->
-  <div class="info-box">
-    <table>
-      <tr>
-        <td class="label">Razão Social:</td> <td>{{ cliente.razao_social }}</td>
-      </tr>
-      <tr>
-        <td class="label">CNPJ:</td> <td>{{ cliente.cnpj }}</td>
-      </tr>
-      <tr>
-        <td class="label">Inscrição Est.:</td> <td>{{ cliente.inscricao_estadual }}</td>
-      </tr>
-      <tr>
-        <td class="label">Endereço:</td> <td>{{ cliente.endereco }}, {{ cliente.bairro }}</td>
-      </tr>
-      <tr>
-        <td class="label">Cidade:</td> <td>{{ cliente.cidade }} - {{ cliente.uf }}</td>
-      </tr>
-      <tr>
-        <td class="label">CEP:</td> <td>{{ cliente.cep }}</td>
-      </tr>
-      <tr>
-        <td class="label">Contato:</td> <td>{{ cliente.contato }}</td>
-      </tr>
-       <tr>
-        <td class="label">Telefone:</td> <td>{{ cliente.telefone }}</td>
-      </tr>
-      <tr>
-        <td class="label">E-mail:</td> <td>{{ cliente.email }}</td>
-      </tr>
-    </table>
+  <!-- CORREÇÃO DE LAYOUT: Trocado <table> por <div>s -->
+  <div class="info-box-simple">
+    <div><strong>Razão Social:</strong> {{ cliente.razao_social }}</div>
+    <div><strong>CNPJ:</strong> {{ cliente.cnpj }}</div>
+    <div><strong>Inscrição Est.:</strong> {{ cliente.inscricao_estadual }}</div>
+    <div><strong>Endereço:</strong> {{ cliente.endereco }}, {{ cliente.bairro }}</div>
+    <div><strong>Cidade:</strong> {{ cliente.cidade }} - {{ cliente.uf }}</div>
+    <div><strong>CEP:</strong> {{ cliente.cep }}</div>
+    <div><strong>Contato:</strong> {{ cliente.contato }}</div>
+    <div><strong>Telefone:</strong> {{ cliente.telefone }}</div>
+    <div><strong>E-mail:</strong> {{ cliente.email }}</div>
   </div>
 
   <div class="section-title">Itens do Orçamento</div>
@@ -155,41 +142,21 @@
   </table>
 
   <div class="section-title">Condições de Pagamento e Entrega</div>
-  <!-- CORREÇÃO DE LAYOUT: Tabela de 2 colunas -->
-  <div class="info-box">
-    <table>
-      <tr>
-        <td class="label">Cond. Pagto:</td> <td>{{ pagamento.condicao }}</td>
-      </tr>
-      <tr>
-        <td class="label">Data de Entrega:</td> <td>{{ pagamento.data_entrega }}</td>
-      </tr>
-      <tr>
-        <td class="label">Qtde de Parcelas:</td> <td>{{ pagamento.qtde_parcelas }}</td>
-      </tr>
-      <tr>
-        <td class="label">Valor da Parcela:</td> <td>R$ {{ "%.2f"|format(pagamento.valor_parcela) }}</td>
-      </tr>
-    </table>
+  <!-- CORREÇÃO DE LAYOUT: Trocado <table> por <div>s -->
+  <div class="info-box-simple">
+    <div><strong>Cond. Pagto:</strong> {{ pagamento.condicao }}</div>
+    <div><strong>Data de Entrega:</strong> {{ pagamento.data_entrega }}</div>
+    <div><strong>Qtde de Parcelas:</strong> {{ pagamento.qtde_parcelas }}</div>
+    <div><strong>Valor da Parcela:</strong> R$ {{ "%.2f"|format(pagamento.valor_parcela) }}</div>
   </div>
 
   <div class="section-title">Transportadora e Observações</div>
-  <!-- CORREÇÃO DE LAYOUT: Tabela de 2 colunas -->
-  <div class="info-box">
-    <table>
-      <tr>
-        <td class="label">Transportadora:</td><td>{{ transportadora.nome }}</td>
-      </tr>
-      <tr>
-        <td class="label">CNPJ:</td><td>{{ transportadora.cnpj }}</td>
-      </tr>
-      <tr>
-        <td class="label">Telefone:</td><td>{{ transportadora.telefone }}</td>
-      </tr>
-      <tr>
-        <td class="label">Obs:</td><td>{{ observacoes }}</td>
-      </tr>
-    </table>
+  <!-- CORREÇÃO DE LAYOUT: Trocado <table> por <div>s -->
+  <div class="info-box-simple">
+    <div><strong>Transportadora:</strong> {{ transportadora.nome }}</div>
+    <div><strong>CNPJ:</strong> {{ transportadora.cnpj }}</div>
+    <div><strong>Telefone:</strong> {{ transportadora.telefone }}</div>
+    <div><strong>Obs:</strong> {{ observacoes }}</div>
   </div>
 
   <div class="pdf-footer">
