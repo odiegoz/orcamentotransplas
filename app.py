@@ -1,8 +1,10 @@
 import streamlit as st
 import os
 from datetime import date
-from gerador_funcoes import criar_pdf
+from gerador_funcoes import criar_pdf # Importa a função corrigida
 from database import init_db, get_all_clients, get_client_by_id, add_client
+import io
+import traceback # Importado para logs
 
 # --- DADOS DAS EMPRESAS ---
 EMPRESAS = {
@@ -22,11 +24,15 @@ EMPRESAS = {
     }
 }
 
-# Inicializa o banco de dados na primeira vez que a aplicação é executada
-init_db()
+# Inicializa o banco de dados
+try:
+    init_db()
+except Exception as e:
+    st.error(f"Falha ao inicializar o banco de dados: {e}")
+    traceback.print_exc()
+    st.stop()
 
 st.set_page_config(layout="wide", page_title="Gerador de Orçamentos")
-
 st.title("📄 Gerador de Propostas e Orçamentos")
 
 # --- SELEÇÃO DA EMPRESA ---
@@ -40,44 +46,47 @@ st.markdown("---")
 # --- BARRA LATERAL PARA GERENCIAR CLIENTES ---
 st.sidebar.title("Clientes")
 
-clientes = get_all_clients()
-cliente_map = {f"{c['razao_social']} (ID: {c['id']})": c['id'] for c in clientes}
-opcoes_cliente = ["- Selecione um Cliente -"] + list(cliente_map.keys())
+try:
+    clientes = get_all_clients()
+    cliente_map = {f"{c['razao_social']} (ID: {c['id']})": c['id'] for c in clientes}
+    opcoes_cliente = ["- Selecione um Cliente -"] + list(cliente_map.keys())
 
-cliente_selecionado_str = st.sidebar.selectbox("Carregar Cliente Existente", options=opcoes_cliente)
+    cliente_selecionado_str = st.sidebar.selectbox("Carregar Cliente Existente", options=opcoes_cliente)
 
-if cliente_selecionado_str != "- Selecione um Cliente -":
-    cliente_id = cliente_map[cliente_selecionado_str]
-    if 'cliente_id' not in st.session_state or st.session_state.cliente_id != cliente_id:
-        st.session_state.cliente_id = cliente_id
-        st.session_state.dados_cliente = get_client_by_id(cliente_id)
-        st.rerun()
+    if cliente_selecionado_str != "- Selecione um Cliente -":
+        cliente_id = cliente_map[cliente_selecionado_str]
+        if 'cliente_id' not in st.session_state or st.session_state.cliente_id != cliente_id:
+            st.session_state.cliente_id = cliente_id
+            st.session_state.dados_cliente = get_client_by_id(cliente_id)
+            st.rerun()
 
-with st.sidebar.expander("➕ Adicionar Novo Cliente", expanded=False):
-    with st.form("new_client_form", clear_on_submit=True):
-        new_cliente_data = {
-            'razao_social': st.text_input("Razão Social*"),
-            'cnpj': st.text_input("CNPJ*"),
-            'endereco': st.text_input("Endereço"), 'bairro': st.text_input("Bairro"),
-            'cidade': st.text_input("Cidade"), 'uf': st.text_input("UF"), 'cep': st.text_input("CEP"),
-            'inscricao_estadual': st.text_input("Inscrição Estadual"),
-            'telefone': st.text_input("Telefone"), 'contato': st.text_input("Contato"),
-            'email': st.text_input("E-mail")
-        }
-        submitted = st.form_submit_button("Salvar Novo Cliente")
-        if submitted:
-            if not new_cliente_data['razao_social'] or not new_cliente_data['cnpj']:
-                st.sidebar.error("Razão Social e CNPJ são obrigatórios.")
-            else:
-                if add_client(new_cliente_data):
-                    st.sidebar.success("Cliente salvo!")
-                    st.rerun()
+    with st.sidebar.expander("➕ Adicionar Novo Cliente", expanded=False):
+        with st.form("new_client_form", clear_on_submit=True):
+            new_cliente_data = {
+                'razao_social': st.text_input("Razão Social*"),
+                'cnpj': st.text_input("CNPJ*"),
+                'endereco': st.text_input("Endereço"), 'bairro': st.text_input("Bairro"),
+                'cidade': st.text_input("Cidade"), 'uf': st.text_input("UF"), 'cep': st.text_input("CEP"),
+                'inscricao_estadual': st.text_input("Inscrição Estadual"),
+                'telefone': st.text_input("Telefone"), 'contato': st.text_input("Contato"),
+                'email': st.text_input("E-mail")
+            }
+            submitted = st.form_submit_button("Salvar Novo Cliente")
+            if submitted:
+                if not new_cliente_data['razao_social'] or not new_cliente_data['cnpj']:
+                    st.sidebar.error("Razão Social e CNPJ são obrigatórios.")
                 else:
-                    st.sidebar.error("Cliente com este CNPJ já existe.")
+                    if add_client(new_cliente_data):
+                        st.sidebar.success("Cliente salvo!")
+                        st.rerun()
+                    else:
+                        st.sidebar.error("Cliente com este CNPJ já existe.")
+except Exception as e:
+    st.sidebar.error(f"Erro ao carregar clientes: {e}")
+    traceback.print_exc() # Loga o erro completo no terminal/logs
 
 # --- FORMULÁRIO PRINCIPAL DO ORÇAMENTO ---
 dados_cliente_atual = st.session_state.get('dados_cliente', None)
-
 col_dados_gerais, col_itens = st.columns(2)
 
 with col_dados_gerais:
@@ -143,19 +152,24 @@ with col_itens:
         
         item_cols_2 = st.columns([1, 1])
         with item_cols_2[0]:
-            quantidade_kg = st.number_input("Qtd (KG)", min_value=0.01, format="%.2f")
+            quantidade_kg = st.number_input("Qtd (KG)", min_value=0.01, value=1.0, format="%.2f")
         with item_cols_2[1]:
-            valor_kg = st.number_input("Valor (KG)", min_value=0.01, format="%.2f")
+            valor_kg = st.number_input("Valor (KG)", min_value=0.01, value=1.0, format="%.2f")
         
         add_item_button = st.form_submit_button("Adicionar Item")
 
-        if add_item_button and descricao:
-            st.session_state.itens.append({
-                'descricao': descricao, 'filme': filme, 'cor_codigo': cor_codigo,
-                'acabamento': acabamento, 'medida': medida, 
-                'quantidade_kg': float(quantidade_kg), 'valor_kg': float(valor_kg),
-                'ipi_item': float(impostos_ipi)
-            })
+        # --- CORREÇÃO: Adicionada validação de valor e st.rerun() ---
+        if add_item_button:
+            if not descricao or quantidade_kg <= 0 or valor_kg <= 0:
+                st.warning("Preencha a descrição, Qtd (KG) > 0 e Valor (KG) > 0.")
+            else:
+                st.session_state.itens.append({
+                    'descricao': descricao, 'filme': filme, 'cor_codigo': cor_codigo,
+                    'acabamento': acabamento, 'medida': medida, 
+                    'quantidade_kg': float(quantidade_kg), 'valor_kg': float(valor_kg),
+                    'ipi_item': float(impostos_ipi)
+                })
+                st.rerun() # Atualiza a lista de itens imediatamente
 
     if st.session_state.itens:
         st.write("Itens adicionados:")
@@ -172,6 +186,7 @@ with col_itens:
 
 st.markdown("---")
 
+# --- CORREÇÃO: Lógica do botão "Gerar PDF" ---
 if st.button("Gerar PDF do Orçamento", type="primary"):
     if not cliente['razao_social'] or not st.session_state.itens:
         st.error("Preencha, no mínimo, a Razão Social do cliente e adicione pelo menos um item.")
@@ -187,8 +202,11 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
             total_nf = valor_mercadoria + valor_ipi
             valor_parcela = total_nf / qtde_parcelas_int if qtde_parcelas_int > 0 else 0
             
+            # Copia os dados da empresa selecionada para não modificar o original
+            dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
+
             dados = {
-                'empresa': EMPRESAS[empresa_selecionada_nome], # Passa os dados da empresa selecionada
+                'empresa': dados_empresa, # Passa o dicionário da empresa
                 'orcamento_numero': orcamento_numero,
                 'data_emissao': date.today().strftime('%d/%m/%Y'),
                 'vendedor': vendedor,
@@ -210,27 +228,22 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'observacoes': observacoes
             }
             
-            PASTA_ORCAMENTOS = "orcamentos_gerados"
-            if not os.path.exists(PASTA_ORCAMENTOS):
-                os.makedirs(PASTA_ORCAMENTOS)
-            
+            # 1. Definir o nome do arquivo para download
             nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
-            caminho_completo = os.path.join(PASTA_ORCAMENTOS, nome_arquivo_pdf)
             
-            caminho_pdf_gerado = criar_pdf(dados, caminho_completo)
+            # 2. Chamar a função em memória (ela retorna bytes)
+            pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=True)
 
-            if caminho_pdf_gerado:
+            # 3. Verificar se os bytes foram criados
+            if pdf_bytes:
                 st.success(f"PDF '{nome_arquivo_pdf}' gerado com sucesso!")
                 
-                with open(caminho_pdf_gerado, "rb") as pdf_file:
-                    PDFbytes = pdf_file.read()
-
+                # 4. Usar os bytes diretamente no st.download_button
                 st.download_button(
                     label="Clique aqui para baixar o PDF",
-                    data=PDFbytes,
+                    data=pdf_bytes,
                     file_name=nome_arquivo_pdf,
-                    mime="application/octet-stream"
+                    mime="application/pdf" # Mime type correto para PDF
                 )
             else:
-                st.error("Ocorreu um erro ao gerar o PDF.")
-
+                st.error("Ocorreu um erro ao gerar o PDF. Verifique os logs.")

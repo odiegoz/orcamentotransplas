@@ -22,6 +22,7 @@
 
   .info-box table { width:100%; border-collapse:collapse; }
   .info-box td { padding:3px 4px; vertical-align:top; font-size:8.5pt; }
+  /* CORREÇÃO: Label com largura fixa para alinhar */
   .info-box .label { font-weight:700; white-space:nowrap; width:120px; }
 
   /* tabela de itens: thead aqui repete em cada página automaticamente */
@@ -52,20 +53,17 @@
 
   /* evitar margens automáticas que “esticam” a área do header */
   h1, p { margin: 0; padding: 0; }
-
-  /* quebra de palavras longas em células */
   td { word-break:break-word; hyphens:auto; }
 </style>
 </head>
 <body>
 
-  <!-- CABEÇALHO (bloco normal, NÃO thead do wrapper) -->
 <div class="company-info">
-  {% if empresa.nome|upper.startswith("ISOFORMA") %}
+  {% if empresa.nome|upper.startswith("ISOFORMA") and empresa.logo_base64 %}
     <table style="width: 100%; border-collapse: collapse;">
       <tr>
         <td style="width: 80px; vertical-align: middle; padding: 0;">
-          <img src="logo_isoforma.jpg" alt="Logo Isoforma" style="width: 80px; height: auto; display: block;">
+          <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" style="width: 80px; height: auto; display: block;">
         </td>
         <td style="vertical-align: middle; padding: 0 0 0 8px;">
           <h1>{{ empresa.nome }}</h1>
@@ -80,7 +78,7 @@
     <p>Contato: {{ empresa.contato }}</p>
   {% endif %}
 </div>
-  <!-- METADADOS -->
+
   <table class="meta">
     <tr>
       <td class="left">Orçamento N°: {{ orcamento_numero }}</td>
@@ -112,7 +110,6 @@
 
   <div class="section-title">Itens do Orçamento</div>
 
-  <!-- TABELA DE ITENS: thead vai repetir em cada página -->
   <table class="items-table">
     <thead>
       <tr>
@@ -161,10 +158,10 @@
     <table>
       <tr>
         <td class="label">Cond. Pagto:</td> <td>{{ pagamento.condicao }}</td>
-        <td class="label">Qtde de Parcelas:</td> <td>{{ pagamento.qtde_parcelas }}</td>
+        <td class="label">Data de Entrega:</td> <td>{{ pagamento.data_entrega }}</td>
       </tr>
       <tr>
-        <td class="label">Data de Entrega:</td> <td>{{ pagamento.data_entrega }}</td>
+        <td class="label">Qtde de Parcelas:</td> <td>{{ pagamento.qtde_parcelas }}</td>
         <td class="label">Valor da Parcela:</td> <td>R$ {{ "%.2f"|format(pagamento.valor_parcela) }}</td>
       </tr>
     </table>
@@ -176,19 +173,17 @@
       <tr>
         <td class="label">Transportadora:</td><td>{{ transportadora.nome }}</td>
         <td class="label">CNPJ:</td><td>{{ transportadora.cnpj }}</td>
-        <td class="label">Telefone:</td><td>{{ transportadora.telefone }}</td>
       </tr>
       <tr>
-        <td class="label">Obs:</td><td colspan="5">{{ observacoes }}</td>
+        <td class="label">Telefone:</td><td>{{ transportadora.telefone }}</td>
+        <td class="label">Obs:</td><td colspan="3">{{ observacoes }}</td>
       </tr>
     </table>
   </div>
 
-  <!-- rodapé fixo (repetível em muitas engines) -->
   <div class="pdf-footer">
     {{ empresa.nome }} — Página <span class="page">1</span>
   </div>
 
 </body>
 </html>
-
