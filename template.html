@@ -8,8 +8,6 @@
   html,body { font-family: Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box; -webkit-text-size-adjust:none; }
   *,*:before,*:after { box-sizing:inherit; }
 
-  /* cabeçalho do documento (não repetir) */
-  .doc-header { padding-bottom:6px; border-bottom:1px solid #eee; margin-bottom:6px; }
   .company-info h1 { font-size:14pt; margin:0; }
   .company-info p { margin:2px 0; font-size:8.5pt; }
 
@@ -20,11 +18,14 @@
 
   .section-title { font-weight:700; font-size:10pt; margin:8px 0 6px 0; border-bottom:1px solid #eee; padding-bottom:3px; }
 
+  /* --- CORREÇÃO DE LAYOUT --- */
+  /* Tabela de 2 colunas simples e robusta */
   .info-box table { width:100%; border-collapse:collapse; }
   .info-box td { padding:3px 4px; vertical-align:top; font-size:8.5pt; }
-  .info-box .label { font-weight:700; white-space:nowrap; width:120px; }
+  /* O Rótulo (label) agora tem uma largura fixa para alinhar */
+  .info-box .label { font-weight:700; white-space:nowrap; width:130px; } 
+  /* --- FIM DA CORREÇÃO --- */
 
-  /* tabela de itens: thead aqui repete em cada página automaticamente */
   .items-table { width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
   .items-table thead th { background:#f7f7f7; padding:6px; font-size:9pt; text-align:left; border-bottom:1px solid #ddd; }
   .items-table thead th.text-right { text-align:right; }
@@ -35,22 +36,10 @@
 
   .items-table tfoot td { padding:6px; font-weight:700; background:#fafafa; border-top:1px solid #ddd; text-align:right; }
 
-  /* totais */
   .summary { width:100%; margin-top:8px; border-collapse:collapse; font-size:9pt; }
   .summary td { padding:4px 6px; }
 
-  /* rodapé fixo */
-  .pdf-footer {
-    position: fixed;
-    bottom: 10mm;
-    left: 12mm;
-    right: 12mm;
-    text-align:center;
-    font-size:8pt;
-    color:#666;
-  }
-
-  /* evitar margens automáticas que “esticam” a área do header */
+  .pdf-footer { position: fixed; bottom: 10mm; left: 12mm; right: 12mm; text-align:center; font-size:8pt; color:#666; }
   h1, p { margin: 0; padding: 0; }
   td { word-break:break-word; hyphens:auto; }
 </style>
@@ -58,15 +47,14 @@
 <body>
 
 <div class="company-info">
-  <!-- CORREÇÃO APLICADA AQUI -->
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
-    <!-- Logo em Base64 -->
     <table style="width: 100%; border-collapse: collapse;">
       <tr>
-        <td style="width: 80px; vertical-align: middle; padding: 0;">
-          <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" style="width: 80px; height: auto; display: block;">
+        <!-- CORREÇÃO DA LOGO: Usando atributo width="80" e max-height no style -->
+        <td style="width: 80px; vertical-align: top; padding: 0;">
+          <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" width="80" style="max-height: 50px;">
         </td>
-        <td style="vertical-align: middle; padding: 0 0 0 8px;">
+        <td style="vertical-align: top; padding: 0 0 0 8px;">
           <h1>{{ empresa.nome }}</h1>
           <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
           <p>Contato: {{ empresa.contato }}</p>
@@ -74,7 +62,6 @@
       </tr>
     </table>
   {% else %}
-    <!-- Fallback se não for Isoforma ou se a logo falhar -->
     <h1>{{ empresa.nome }}</h1>
     <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
     <p>Contato: {{ empresa.contato }}</p>
@@ -89,22 +76,34 @@
   </table>
 
   <div class="section-title">Dados do Cliente</div>
+  <!-- CORREÇÃO DE LAYOUT: Tabela de 2 colunas -->
   <div class="info-box">
     <table>
       <tr>
         <td class="label">Razão Social:</td> <td>{{ cliente.razao_social }}</td>
+      </tr>
+      <tr>
         <td class="label">CNPJ:</td> <td>{{ cliente.cnpj }}</td>
       </tr>
       <tr>
-        <td class="label">Endereço:</td> <td>{{ cliente.endereco }}, {{ cliente.bairro }}</td>
         <td class="label">Inscrição Est.:</td> <td>{{ cliente.inscricao_estadual }}</td>
       </tr>
       <tr>
+        <td class="label">Endereço:</td> <td>{{ cliente.endereco }}, {{ cliente.bairro }}</td>
+      </tr>
+      <tr>
         <td class="label">Cidade:</td> <td>{{ cliente.cidade }} - {{ cliente.uf }}</td>
-        <td class="label">Contato:</td> <td>{{ cliente.contato }} ({{ cliente.telefone }})</td>
       </tr>
       <tr>
         <td class="label">CEP:</td> <td>{{ cliente.cep }}</td>
+      </tr>
+      <tr>
+        <td class="label">Contato:</td> <td>{{ cliente.contato }}</td>
+      </tr>
+       <tr>
+        <td class="label">Telefone:</td> <td>{{ cliente.telefone }}</td>
+      </tr>
+      <tr>
         <td class="label">E-mail:</td> <td>{{ cliente.email }}</td>
       </tr>
     </table>
@@ -156,29 +155,39 @@
   </table>
 
   <div class="section-title">Condições de Pagamento e Entrega</div>
+  <!-- CORREÇÃO DE LAYOUT: Tabela de 2 colunas -->
   <div class="info-box">
     <table>
       <tr>
         <td class="label">Cond. Pagto:</td> <td>{{ pagamento.condicao }}</td>
+      </tr>
+      <tr>
         <td class="label">Data de Entrega:</td> <td>{{ pagamento.data_entrega }}</td>
       </tr>
       <tr>
         <td class="label">Qtde de Parcelas:</td> <td>{{ pagamento.qtde_parcelas }}</td>
-        <td class="label">Valor da Parcela:</td> G$ {{ "%.2f"|format(pagamento.valor_parcela) }}</td>
+      </tr>
+      <tr>
+        <td class="label">Valor da Parcela:</td> <td>R$ {{ "%.2f"|format(pagamento.valor_parcela) }}</td>
       </tr>
     </table>
   </div>
 
   <div class="section-title">Transportadora e Observações</div>
+  <!-- CORREÇÃO DE LAYOUT: Tabela de 2 colunas -->
   <div class="info-box">
     <table>
       <tr>
         <td class="label">Transportadora:</td><td>{{ transportadora.nome }}</td>
+      </tr>
+      <tr>
         <td class="label">CNPJ:</td><td>{{ transportadora.cnpj }}</td>
       </tr>
       <tr>
         <td class="label">Telefone:</td><td>{{ transportadora.telefone }}</td>
-        <td class="label">Obs:</td><td colspan="3">{{ observacoes }}</td>
+      </tr>
+      <tr>
+        <td class="label">Obs:</td><td>{{ observacoes }}</td>
       </tr>
     </table>
   </div>
@@ -189,3 +198,4 @@
 
 </body>
 </html>
+
