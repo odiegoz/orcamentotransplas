@@ -22,7 +22,6 @@
 
   .info-box table { width:100%; border-collapse:collapse; }
   .info-box td { padding:3px 4px; vertical-align:top; font-size:8.5pt; }
-  /* CORREÇÃO: Label com largura fixa para alinhar */
   .info-box .label { font-weight:700; white-space:nowrap; width:120px; }
 
   /* tabela de itens: thead aqui repete em cada página automaticamente */
@@ -59,7 +58,9 @@
 <body>
 
 <div class="company-info">
-  {% if empresa.nome|upper.startswith("ISOFORMA") and empresa.logo_base64 %}
+  <!-- CORREÇÃO APLICADA AQUI -->
+  {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
+    <!-- Logo em Base64 -->
     <table style="width: 100%; border-collapse: collapse;">
       <tr>
         <td style="width: 80px; vertical-align: middle; padding: 0;">
@@ -73,6 +74,7 @@
       </tr>
     </table>
   {% else %}
+    <!-- Fallback se não for Isoforma ou se a logo falhar -->
     <h1>{{ empresa.nome }}</h1>
     <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
     <p>Contato: {{ empresa.contato }}</p>
@@ -162,7 +164,7 @@
       </tr>
       <tr>
         <td class="label">Qtde de Parcelas:</td> <td>{{ pagamento.qtde_parcelas }}</td>
-        <td class="label">Valor da Parcela:</td> <td>R$ {{ "%.2f"|format(pagamento.valor_parcela) }}</td>
+        <td class="label">Valor da Parcela:</td> G$ {{ "%.2f"|format(pagamento.valor_parcela) }}</td>
       </tr>
     </table>
   </div>
