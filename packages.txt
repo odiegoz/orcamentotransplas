@@ -1,2 +1,5 @@
 pkg-config
 libcairo2-dev
+libpango-1.0-0
+libcairo2
+libgdk-pixbuf2.0-0
