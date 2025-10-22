@@ -4,44 +4,44 @@
 <meta charset="utf-8">
 <title>Orçamento</title>
 <style>
+  /* --- COR PRINCIPAL --- */
+  :root {
+    --cor-principal: #367c2b; /* Tom de verde da logo Isoforma */
+  }
+
   @page { size: A4 portrait; margin: 12mm; }
   html,body { font-family: Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box; -webkit-text-size-adjust:none; }
   *,*:before,*:after { box-sizing:inherit; }
 
-  /* --- CORREÇÃO DO CABEÇALHO --- */
-  .company-info {
-    /* Garante que o container "segure" os floats */
-    display: block;
-    width: 100%;
-  }
-  .company-info::after {
-    content: "";
-    display: table;
-    clear: both;
-  }
-  .header-logo-block {
-      float: left;
-      width: 80px; /* Largura fixa da logo */
-  }
-  .header-info-block {
-      float: left;
-      /* O padding que você queria, controla a distância da logo */
-      padding-left: 10px; 
-      /* Ocupa o espaço restante */
-      width: 85%; 
-  }
-  /* --- FIM DA CORREÇÃO --- */
+  /* --- CABEÇALHO --- */
+  .company-info { display: block; width: 100%; }
+  .company-info::after { content: ""; display: table; clear: both; }
+  .header-logo-block { float: left; width: 80px; }
+  .header-info-block { float: left; padding-left: 10px; width: 85%; }
 
   .company-info h1 { font-size:14pt; margin:0; }
   .company-info p { margin:2px 0; font-size:8.5pt; }
 
-  .meta { width:100%; border-collapse:collapse; margin:6px 0; }
+  .meta { width:100%; border-collapse:collapse; margin:10px 0; }
   .meta td { padding:2px 4px; vertical-align:top; }
   .meta .left { font-weight:700; font-size:11pt; }
   .meta .right { text-align:right; font-size:8.5pt; }
 
-  .section-title { font-weight:700; font-size:10pt; margin:8px 0 6px 0; border-bottom:1px solid #eee; padding-bottom:3px; }
+  /* --- MELHORIA: Títulos de Seção --- */
+  .section-title { 
+    font-weight:700; 
+    font-size:11pt; 
+    margin: 15px 0 8px 0; /* Mais espaço acima */
+    border-bottom: 2px solid #367c2b; /* Verde Isoforma */
+    padding-bottom: 4px;
+    color: #367c2b; /* Verde Isoforma */
+  }
+  /* Remove margem extra do primeiro título */
+  .meta + .section-title {
+    margin-top: 8px;
+  }
 
+  /* --- Layout dos blocos de informação --- */
   .info-box-simple div { 
     padding-bottom: 3px; 
     font-size: 8.5pt; 
@@ -55,27 +55,78 @@
     vertical-align: top;
   }
 
+  /* --- MELHORIA: Tabela de Itens --- */
   .items-table { width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
-  .items-table thead th { background:#f7f7f7; padding:6px; font-size:9pt; text-align:left; border-bottom:1px solid #ddd; }
+  .items-table thead th { 
+    background: #367c2b; /* Verde Isoforma */
+    color: #ffffff; /* Texto branco */
+    padding: 8px 6px; /* Mais preenchimento */
+    font-size: 10pt; 
+    text-align:left; 
+    border-bottom:1px solid #ddd; 
+  }
   .items-table thead th.text-right { text-align:right; }
-  .items-table tbody td { padding:6px; border-bottom:1px solid #eee; vertical-align:top; font-size:9pt; }
+  .items-table tbody td { padding: 8px 6px; border-bottom:1px solid #eee; vertical-align:top; font-size:9pt; }
   .items-table tbody tr, .items-table tbody td { page-break-inside:avoid; break-inside:avoid; }
   .item-desc { font-weight:700; margin:0 0 4px 0; }
   .item-sub { margin:0; font-size:8pt; color:#555; line-height:1.3; }
 
-  .items-table tfoot td { padding:6px; font-weight:700; background:#fafafa; border-top:1px solid #ddd; text-align:right; }
+  .items-table tfoot td { 
+    padding: 8px 6px; 
+    font-weight:700; 
+    background:#f0f0f0; 
+    border-top:1px solid #ddd; 
+    text-align:right; 
+    font-size: 10pt;
+  }
 
-  .summary { width:100%; margin-top:8px; border-collapse:collapse; font-size:9pt; }
-  .summary td { padding:4px 6px; }
+  /* --- MELHORIA: Tabela de Totais --- */
+  /* Wrapper para alinhar a tabela de resumo à direita */
+  .summary-wrapper {
+    width: 100%;
+    margin-top: 10px;
+  }
+  .summary { 
+    width: 50%; 
+    float: right; /* Alinha à direita */
+    border-collapse: collapse; 
+    font-size: 9pt; 
+    background: #f9f9f9; 
+    border: 1px solid #eee; 
+  }
+  .summary td { 
+    padding: 5px 8px; 
+  }
+  .summary .text-right { 
+    text-align: right; 
+    font-weight: 700;
+  }
+  .summary .total-row td {
+      font-size: 11pt;
+      background: #f0f0f0;
+      border-top: 1px solid #ddd;
+  }
+  /* --- FIM DA MELHORIA --- */
 
-  .pdf-footer { position: fixed; bottom: 10mm; left: 12mm; right: 12mm; text-align:center; font-size:8pt; color:#666; }
+
+  /* --- MELHORIA: Rodapé --- */
+  .pdf-footer { 
+    position: fixed; 
+    bottom: 10mm; 
+    left: 12mm; 
+    right: 12mm; 
+    text-align:center; 
+    font-size:8pt; 
+    color:#666; 
+    border-top: 1px solid #ccc; /* Linha separadora */
+    padding-top: 5px;
+  }
   h1, p { margin: 0; padding: 0; }
   td { word-break:break-word; hyphens:auto; }
 </style>
 </head>
 <body>
 
-<!-- CORREÇÃO DO CABEÇALHO: Trocando <table> por <div>s com float -->
 <div class="company-info">
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
     
@@ -100,7 +151,6 @@
     </div>
   {% endif %}
 </div>
-<!-- FIM DA CORREÇÃO -->
 
   <table class="meta">
     <tr>
@@ -156,16 +206,36 @@
     </tfoot>
   </table>
 
-  <table class="summary">
+  <!-- CORREÇÃO: Tabela de Totais redesenhada -->
+  <table class="summary-wrapper">
     <tr>
-      <td class="summary-label">Base Cálculo ICMS:</td><td style="text-align:right;">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td>
-      <td class="summary-label">ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td><td style="text-align:right;">(informativo)</td>
-    </tr>
-    <tr>
-      <td class="summary-label">Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td><td style="text-align:right;">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td>
-      <td class="summary-label">Total NF:</td><td style="text-align:right;"><strong>R$ {{ "%.2f"|format(totais.total_nf) }}</strong></td>
+        <td style="width: 50%;">
+            <!-- Espaço em branco à esquerda -->
+        </td>
+        <td style="width: 50%;">
+            <table class="summary">
+                <tr>
+                    <td>Base Cálculo ICMS:</td>
+                    <td class="text-right">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td>
+                </tr>
+                <tr>
+                    <td>ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td>
+                    <td class="text-right">(informativo)</td>
+                </tr>
+                <tr>
+                    <td>Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td>
+                    <td class="text-right">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td>
+                </tr>
+                <tr class="total-row">
+                    <td><strong>Total NF:</strong></td>
+                    <td class="text-right"><strong>R$ {{ "%.2f"|format(totais.total_nf) }}</strong></td>
+                </tr>
+            </table>
+        </td>
     </tr>
   </table>
+  <!-- FIM DA CORREÇÃO -->
+
 
   <div class="section-title">Condições de Pagamento e Entrega</div>
   <div class="info-box-simple">
@@ -175,7 +245,7 @@
     <div><strong>Valor da Parcela:</strong> R$ {{ "%.2f"|format(pagamento.valor_parcela) }}</div>
   </div>
 
-  <div class="section-title">Transportadora e Observações</div>
+  <div classs="section-title">Transportadora e Observações</div>
   <div class="info-box-simple">
     <div><strong>Transportadora:</strong> {{ transportadora.nome }}</div>
     <div><strong>CNPJ:</strong> {{ transportadora.cnpj }}</div>
