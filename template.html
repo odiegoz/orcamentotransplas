@@ -8,6 +8,30 @@
   html,body { font-family: Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box; -webkit-text-size-adjust:none; }
   *,*:before,*:after { box-sizing:inherit; }
 
+  /* --- CORREÇÃO DO CABEÇALHO --- */
+  .company-info {
+    /* Garante que o container "segure" os floats */
+    display: block;
+    width: 100%;
+  }
+  .company-info::after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+  .header-logo-block {
+      float: left;
+      width: 80px; /* Largura fixa da logo */
+  }
+  .header-info-block {
+      float: left;
+      /* O padding que você queria, controla a distância da logo */
+      padding-left: 10px; 
+      /* Ocupa o espaço restante */
+      width: 85%; 
+  }
+  /* --- FIM DA CORREÇÃO --- */
+
   .company-info h1 { font-size:14pt; margin:0; }
   .company-info p { margin:2px 0; font-size:8.5pt; }
 
@@ -18,7 +42,6 @@
 
   .section-title { font-weight:700; font-size:10pt; margin:8px 0 6px 0; border-bottom:1px solid #eee; padding-bottom:3px; }
 
-  /* --- CORREÇÃO DE LAYOUT: Trocando tabelas por <div>s --- */
   .info-box-simple div { 
     padding-bottom: 3px; 
     font-size: 8.5pt; 
@@ -31,7 +54,6 @@
     white-space: nowrap;
     vertical-align: top;
   }
-  /* --- FIM DA CORREÇÃO --- */
 
   .items-table { width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
   .items-table thead th { background:#f7f7f7; padding:6px; font-size:9pt; text-align:left; border-bottom:1px solid #ddd; }
@@ -53,27 +75,32 @@
 </head>
 <body>
 
+<!-- CORREÇÃO DO CABEÇALHO: Trocando <table> por <div>s com float -->
 <div class="company-info">
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
-    <table style="width: 100%; border-collapse: collapse;">
-      <tr>
-        <!-- CORREÇÃO DA LOGO: Forçando width e style, removendo max-height -->
-        <td style="width: 80px; max-width: 80px; vertical-align: top; padding: 0;">
-          <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" width="80" style="width: 80px; height: auto;">
-        </td>
-        <td style="vertical-align: top; padding: 0 0 0 8px;">
-          <h1>{{ empresa.nome }}</h1>
-          <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
-          <p>Contato: {{ empresa.contato }}</p>
-        </td>
-      </tr>
-    </table>
+    
+    <!-- Bloco da Logo -->
+    <div class="header-logo-block">
+      <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" width="80" style="width: 80px; height: auto;">
+    </div>
+
+    <!-- Bloco de Informação -->
+    <div class="header-info-block">
+      <h1>{{ empresa.nome }}</h1>
+      <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+      <p>Contato: {{ empresa.contato }}</p>
+    </div>
+
   {% else %}
-    <h1>{{ empresa.nome }}</h1>
-    <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
-    <p>Contato: {{ empresa.contato }}</p>
+    <!-- Fallback (sem logo) -->
+    <div style="float: left; width: 100%;">
+      <h1>{{ empresa.nome }}</h1>
+      <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+      <p>Contato: {{ empresa.contato }}</p>
+    </div>
   {% endif %}
 </div>
+<!-- FIM DA CORREÇÃO -->
 
   <table class="meta">
     <tr>
@@ -83,7 +110,6 @@
   </table>
 
   <div class="section-title">Dados do Cliente</div>
-  <!-- CORREÇÃO DE LAYOUT: Trocado <table> por <div>s -->
   <div class="info-box-simple">
     <div><strong>Razão Social:</strong> {{ cliente.razao_social }}</div>
     <div><strong>CNPJ:</strong> {{ cliente.cnpj }}</div>
@@ -142,7 +168,6 @@
   </table>
 
   <div class="section-title">Condições de Pagamento e Entrega</div>
-  <!-- CORREÇÃO DE LAYOUT: Trocado <table> por <div>s -->
   <div class="info-box-simple">
     <div><strong>Cond. Pagto:</strong> {{ pagamento.condicao }}</div>
     <div><strong>Data de Entrega:</strong> {{ pagamento.data_entrega }}</div>
@@ -151,7 +176,6 @@
   </div>
 
   <div class="section-title">Transportadora e Observações</div>
-  <!-- CORREÇÃO DE LAYOUT: Trocado <table> por <div>s -->
   <div class="info-box-simple">
     <div><strong>Transportadora:</strong> {{ transportadora.nome }}</div>
     <div><strong>CNPJ:</strong> {{ transportadora.cnpj }}</div>
