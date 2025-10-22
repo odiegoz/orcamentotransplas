@@ -1,46 +1,46 @@
-# gerador_funcoes.py (versão com sanitização do HTML para evitar strings em alturas/larguras)
+import streamlit as st
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 from xhtml2pdf import pisa
 import os
 import traceback
 import re
+import io  # Importado para lidar com bytes em memória
 
 # --- CONFIGURAÇÕES ---
 SEU_NOME_OU_EMPRESA = "ISOFORMA PLASTICOS INDUSTRIAIS LTDA"
 
+# --- Funções de Sanitização (Idênticas às suas) ---
+
 # regex para remover height/width attributes: height="..." width='...'
 _ATTR_DIM_RE = re.compile(r'\s*(?:height|width)\s*=\s*"(?:[^"]*)"|\s*(?:height|width)\s*=\s*\'(?:[^\']*)\'', flags=re.IGNORECASE)
-
-# regex para remover height/width declarations dentro de style="..."
-_STYLE_DIM_RE = re.compile(r'(height|width)\s*:\s*[^;"]+;?', flags=re.IGNORECASE)
-
-# regex para remover all style attributes on table-related tags (fallback)
+_STYLE_DIM_RE_INTERNAL = re.compile(r'\b(height|width)\s*:\s*[^;"]+;?', flags=re.IGNORECASE)
+_STYLE_ATTR_RE_GENERIC = re.compile(r'(<[^>]*?)\sstyle\s*=\s*(")([^"]*)(")', flags=re.IGNORECASE)
+_STYLE_ATTR_RE_GENERIC_SINGLE = re.compile(r"(<[^>]*?)\sstyle\s*=\s*(')([^']*)(')", flags=re.IGNORECASE)
 _STYLE_ATTR_RE = re.compile(r'(<(?:td|th|tr|table)[^>]*?)\sstyle\s*=\s*"(?:[^"]*)"([^>]*>)', flags=re.IGNORECASE)
 
 def _sanitize_table_dimensions(html: str) -> str:
     """
-    Remove atributos height/width e declarações height/width dentro de style= de elementos de tabela.
+    Remove atributos height/width e declarações height/width dentro de style=
+    de elementos de tabela (e outros elementos, por segurança).
     Retorna HTML sanitizado.
     """
     if not html:
         return html
-    # 1) remover height="..." e width="..." (aspas duplas e simples)
+    
     sanitized = _ATTR_DIM_RE.sub('', html)
 
-    # 2) remover declarações de height/width dentro de style="..."
-    # precisamos processar cada style="..." e remover height/width dentro dele
     def _strip_style_dims(match):
-        style_content = match.group(0)
-        # remove height/width declarations
-        new_style = _STYLE_DIM_RE.sub('', style_content)
-        return new_style
+        pre_tag = match.group(1)
+        quote = match.group(2)
+        style_content = match.group(3)
+        new_style_content = _STYLE_DIM_RE_INTERNAL.sub('', style_content)
+        new_style_content = re.sub(r';\s*;', ';', new_style_content)
+        new_style_content = re.sub(r'\s{2,}', ' ', new_style_content).strip()
+        return f'{pre_tag} style={quote}{new_style_content}{quote}'
 
-    # Para simplificar, aplicamos uma remoção global de height/width dentro de estilos:
-    sanitized = _STYLE_DIM_RE.sub('', sanitized)
-
-    # 3) limpar múltiplos espaços criados
+    sanitized = _STYLE_ATTR_RE_GENERIC.sub(_strip_style_dims, sanitized)
+    sanitized = _STYLE_ATTR_RE_GENERIC_SINGLE.sub(_strip_style_dims, sanitized)
     sanitized = re.sub(r'\s{2,}', ' ', sanitized)
-
     return sanitized
 
 def _remove_table_styles_completely(html: str) -> str:
@@ -49,91 +49,140 @@ def _remove_table_styles_completely(html: str) -> str:
     """
     if not html:
         return html
-    # remove style="..." apenas de tags de tabela
     out = _STYLE_ATTR_RE.sub(r'\1\2', html)
-    # também remover eventuais style='...' com aspas simples
     out = re.sub(r"(<(?:td|th|tr|table)[^>]*?)\sstyle\s*=\s*'(?:[^']*)'([^>]*>)", r'\1\2', out, flags=re.IGNORECASE)
     return out
 
-def criar_pdf(dados, nome_arquivo="orcamento.pdf", template_path="template.html", debug_dump_html=False):
+# --- FUNÇÃO DE GERAR PDF (MODIFICADA PARA STREAMLIT) ---
+
+def criar_pdf_em_memoria(dados, template_path="template.html", debug_dump_html=False):
     """
-    Renderiza o template Jinja2 com os dados e converte para PDF usando xhtml2pdf (pisa).
-    Retorna o caminho do arquivo gerado ou None em caso de erro.
-    Faz sanitização do HTML para evitar que atributos de altura/largura em string
-    causem erros no ReportLab (TypeError: unsupported operand type(s) for -: 'str' and 'int').
+    Renderiza o template Jinja2 e converte para PDF em memória (io.BytesIO).
+    Retorna os bytes do PDF ou None em caso de erro.
     """
     try:
-        # Verifica existência do template
-        if not os.path.exists(template_path):
-            print(f"[criar_pdf] ERRO: template não encontrado em: {template_path}")
-            return None
-
-        env = Environment(loader=FileSystemLoader('.'), autoescape=False)
+        # --- Carregamento robusto do template ---
+        # __file__ se refere a este script (gerador_para_streamlit.py)
+        # os.path.dirname(__file__) é o diretório onde o script está
+        script_dir = os.path.dirname(__file__)
+        
+        # Procura templates no diretório do script
+        env = Environment(loader=FileSystemLoader(script_dir), autoescape=False)
+        
         try:
-            template = env.get_template(template_path)
+            # Garante que estamos pegando o template_path relativo ao script_dir
+            # (embora o FileSystemLoader(script_dir) já deva fazer isso)
+            template_rel_path = os.path.basename(template_path)
+            template = env.get_template(template_rel_path)
         except TemplateNotFound:
-            print(f"[criar_pdf] ERRO: Template '{template_path}' não encontrado no diretório atual.")
+            st.error(f"Template '{template_rel_path}' não encontrado em: {script_dir}")
             return None
 
-        # Renderiza o HTML (string Unicode)
+        # Renderiza o HTML
         html_renderizado = template.render(dados)
-
+        
         if debug_dump_html:
-            # Útil para debug: salvar uma cópia do HTML gerado
-            with open("debug_orcamento_render.html", "w", encoding="utf-8") as f:
-                f.write(html_renderizado)
+            print("--- HTML Renderizado (Debug) ---")
+            print(html_renderizado)
+            print("---------------------------------")
 
-        # Sanitização inicial: remover height/width attributes e declarações dentro de style
+        # Sanitização inicial
         html_sanitizado = _sanitize_table_dimensions(html_renderizado)
 
+        # --- MODIFICAÇÃO PRINCIPAL: Usar io.BytesIO ---
+        result_buffer = io.BytesIO()
+        
         # Primeiro tentativa com HTML sanitizado
         try:
-            with open(nome_arquivo, "wb") as result_file:
-                pisa_status = pisa.CreatePDF(
-                    src=html_sanitizado,
-                    dest=result_file
-                )
+            pisa_status = pisa.CreatePDF(
+                src=html_sanitizado,
+                dest=result_buffer
+            )
 
             if pisa_status.err:
-                print(f"[criar_pdf] Primeiro intento: pisa_status.err = {pisa_status.err}")
-                # mostrar parte do HTML para diagnóstico (limitado)
-                snippet = html_sanitizado[:2000]
-                print("[criar_pdf] Trecho do HTML sanitizado (até 2000 chars):")
-                print(snippet)
-                # vamos tentar fallback abaixo
+                st.warning(f"Erro na primeira tentativa do PDF: {pisa_status.err}")
                 raise Exception("Erro no pisa na primeira tentativa")
-        except Exception as e_first:
-            print("[criar_pdf] Primeiro intento falhou: ", e_first)
-            # Tentar fallback agressivo: remover completamente style de tags de tabela
-            html_fallback = _remove_table_styles_completely(html_sanitizado)
-            if debug_dump_html:
-                with open("debug_orcamento_render_fallback.html", "w", encoding="utf-8") as f:
-                    f.write(html_fallback)
+            
+            # Sucesso
+            return result_buffer.getvalue()
 
+        except Exception as e_first:
+            st.warning(f"Primeira tentativa falhou: {e_first}. Tentando fallback...")
+            
+            # Tentar fallback agressivo (removendo todos os estilos de tabelas)
+            html_fallback = _remove_table_styles_completely(html_renderizado)
+            
+            # Precisamos de um novo buffer para a segunda tentativa
+            fallback_buffer = io.BytesIO()
+            
             try:
-                with open(nome_arquivo, "wb") as result_file:
-                    pisa_status2 = pisa.CreatePDF(
-                        src=html_fallback,
-                        dest=result_file
-                    )
+                pisa_status2 = pisa.CreatePDF(
+                    src=html_fallback,
+                    dest=fallback_buffer
+                )
                 if pisa_status2.err:
-                    print(f"[criar_pdf] Segundo intento (fallback) também retornou erros: {pisa_status2.err}")
-                    snippet2 = html_fallback[:2000]
-                    print("[criar_pdf] Trecho do HTML fallback (até 2000 chars):")
-                    print(snippet2)
+                    st.error(f"Tentativa de fallback também falhou: {pisa_status2.err}")
                     return None
+                
+                # Sucesso no fallback
+                st.info("PDF gerado com sucesso (modo fallback).")
+                return fallback_buffer.getvalue()
+                
             except Exception as e_second:
-                print("[criar_pdf] Segundo intento (fallback) levantou exceção:")
+                st.error(f"Exceção catastrófica no fallback: {e_second}")
                 traceback.print_exc()
                 return None
 
-        # Se chegou aqui, teve sucesso (pisa escreveu o arquivo)
-        print(f"[criar_pdf] PDF '{nome_arquivo}' criado com sucesso!")
-        return nome_arquivo
-
     except Exception as e:
-        # Impressão detalhada da stack para diagnóstico
-        print("[criar_pdf] Ocorreu uma exceção inesperada em criar_pdf:")
+        st.error(f"Ocorreu uma exceção inesperada em criar_pdf: {e}")
         traceback.print_exc()
-        print(f"[criar_pdf] mensagem de exceção: {e}")
         return None
+
+# --- Exemplo de App Streamlit ---
+
+st.title("Gerador de Orçamentos em PDF")
+
+# Dados de exemplo para o template
+dados_exemplo = {
+    "empresa": SEU_NOME_OU_EMPRESA,
+    "cliente_nome": "Cliente de Teste Ltda.",
+    "cliente_cnpj": "12.345.678/0001-99",
+    "numero_orcamento": "2025-001",
+    "itens": [
+        {"desc": "Produto A", "qtd": 2, "preco_unit": 50.00, "total": 100.00},
+        {"desc": "Produto B", "qtd": 1, "preco_unit": 150.00, "total": 150.00},
+        {"desc": "Serviço de Instalação", "qtd": 10, "preco_unit": 20.00, "total": 200.00}
+    ],
+    "total_geral": 450.00
+}
+
+st.subheader("Dados do Orçamento")
+st.json(dados_exemplo)
+
+# Caminho para o template (deve estar no mesmo diretório do script)
+TEMPLATE_FILE = "template.html" 
+
+if st.button("Gerar Orçamento PDF"):
+    with st.spinner("Gerando PDF... Isso pode levar alguns segundos."):
+        
+        # Verifica se o template existe ANTES de tentar gerar
+        template_full_path = os.path.join(os.path.dirname(__file__), TEMPLATE_FILE)
+        if not os.path.exists(template_full_path):
+            st.error(f"Erro Crítico: Arquivo 'template.html' não encontrado em {template_full_path}")
+            st.stop()
+            
+        # Chama a função modificada
+        pdf_bytes = criar_pdf_em_memoria(dados_exemplo, template_path=TEMPLATE_FILE, debug_dump_html=True)
+        
+        if pdf_bytes:
+            st.success("PDF Gerado com Sucesso!")
+            
+            # --- O modo Streamlit de fazer download ---
+            st.download_button(
+                label="Baixar PDF",
+                data=pdf_bytes,
+                file_name=f"orcamento_{dados_exemplo['numero_orcamento']}.pdf",
+                mime="application/pdf"
+            )
+        else:
+            st.error("Falha ao gerar o PDF. Verifique os logs.")
