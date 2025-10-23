@@ -4,4 +4,3 @@ Jinja2
 st-gsheets-connection
 gspread
 pandas
-fpdf2 #
