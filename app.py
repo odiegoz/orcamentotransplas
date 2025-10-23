@@ -6,7 +6,7 @@ import io
 import traceback # Importado para logs
 
 # --- [MODIFICADO] --- Importações do Google Sheets
-from st_gsheets_connection import GSheetsConnection
+from streamlit_gsheets import GSheetsConnection
 import gspread
 import pandas as pd
 
