@@ -1,6 +1,6 @@
 streamlit
-xhtml2pdf
-Jinja2
 st-gsheets-connection
 gspread
 pandas
+xhtml2pdf
+Jinja2
