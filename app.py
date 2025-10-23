@@ -53,7 +53,13 @@ except Exception as e:
 def carregar_aba(aba_nome):
     """Lê todos os dados de uma aba e retorna um DataFrame."""
     try:
-        df = conn.read(worksheet=aba_nome)
+        # --- [ALTERAÇÃO AQUI] ---
+        # Vamos forçar a leitura da URL dos Secrets para evitar
+        # o erro 'Spreadsheet must be specified' por cache.
+        planilha_url = st.secrets["gsheets"]["spreadsheet"]
+        df = conn.read(spreadsheet=planilha_url, worksheet=aba_nome)
+        # --- [FIM DA ALTERAÇÃO] ---
+        
         df.dropna(how="all", inplace=True) # Remove linhas totalmente vazias
         # Converte a coluna 'id' para string para consistência
         if 'id' in df.columns:
