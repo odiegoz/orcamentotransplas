@@ -9,7 +9,7 @@ import traceback
 from streamlit_gsheets import GSheetsConnection
 import gspread
 import pandas as pd
-# REMOVIDO o 'import json'
+import json # <--- [IMPORTANTE] Adicionar import json
 
 # --- DADOS DAS EMPRESAS (sem alteração) ---
 EMPRESAS = {
@@ -50,9 +50,10 @@ except Exception as e:
 def carregar_aba(aba_nome):
     """Lê todos os dados de uma aba e retorna um DataFrame."""
     try:
-        # --- [CORREÇÃO: Revertido para o original] ---
-        # st.secrets vai ler o TOML e nos dar o dicionário diretamente.
-        sa = gspread.service_account_from_dict(st.secrets["gsheets"]["service_account_info"])
+        # --- [CORREÇÃO: Usando json.loads()] ---
+        creds_json_text = st.secrets["gsheets"]["service_account_info"]
+        creds_json = json.loads(creds_json_text)
+        sa = gspread.service_account_from_dict(creds_json)
         # --- [FIM DA CORREÇÃO] ---
 
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
@@ -72,6 +73,11 @@ def carregar_aba(aba_nome):
 
     except gspread.exceptions.WorksheetNotFound:
         st.error(f"Aba '{aba_nome}' não encontrada na sua planilha! Verifique o nome.")
+        return pd.DataFrame(columns=COLUNAS_CLIENTES)
+    except json.JSONDecodeError as e:
+        st.error(f"Erro ao ler o JSON das credenciais nos Secrets: {e}")
+        st.error("Verifique se o JSON em 'service_account_info' está formatado corretamente e sem caracteres inválidos.")
+        traceback.print_exc()
         return pd.DataFrame(columns=COLUNAS_CLIENTES)
     except Exception as e:
         st.error(f"Erro ao carregar dados da aba '{aba_nome}': {e}")
@@ -100,8 +106,10 @@ def get_client_by_id(client_id):
 def add_client(data_dict):
     """Substitui a função antiga. Adiciona cliente no Google Sheets."""
     try:
-        # --- [CORREÇÃO: Revertido para o original] ---
-        sa = gspread.service_account_from_dict(st.secrets["gsheets"]["service_account_info"])
+        # --- [CORREÇÃO: Usando json.loads()] ---
+        creds_json_text = st.secrets["gsheets"]["service_account_info"]
+        creds_json = json.loads(creds_json_text)
+        sa = gspread.service_account_from_dict(creds_json)
         # --- [FIM DA CORREÇÃO] ---
 
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
@@ -145,6 +153,11 @@ def add_client(data_dict):
 
     except gspread.exceptions.WorksheetNotFound:
         st.error("Aba 'Clientes' não foi encontrada na planilha. Não foi possível salvar.")
+        return False
+    except json.JSONDecodeError as e:
+        st.error(f"Erro ao ler o JSON das credenciais nos Secrets: {e}")
+        st.error("Verifique se o JSON em 'service_account_info' está formatado corretamente e sem caracteres inválidos.")
+        traceback.print_exc()
         return False
     except Exception as e:
         st.error(f"Erro ao salvar no Google Sheets:")
@@ -212,6 +225,8 @@ except Exception as e:
     traceback.print_exc() # Loga o erro completo no terminal/logs
 
 # --- FORMULÁRIO PRINCIPAL DO ORÇAMENTO (sem alteração) ---
+# ... (o resto do seu código continua igual e não precisa ser modificado) ...
+# --- Copie o restante do seu código a partir daqui ---
 dados_cliente_atual = st.session_state.get('dados_cliente', None)
 col_dados_gerais, col_itens = st.columns(2)
 
@@ -339,9 +354,7 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'itens': st.session_state.itens,
                 'pagamento': {
                     'condicao': pagamento_condicao,
-                    # --- [CORREÇÃO FINAL AQUI] ---
-                    'qtde_parcelas': qtde_parcelas_int, # Linha corrigida
-                    # --- [FIM DA CORREÇÃO] ---
+                    'qtde_parcelas': qtde_parcelas_int, # Linha corrigida no último ajuste
                     'data_entrega': pagamento_data_entrega.strftime('%d/%m/%Y'),
                     'valor_parcela': valor_parcela
                 },
