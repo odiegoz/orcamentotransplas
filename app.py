@@ -1,15 +1,15 @@
 import streamlit as st
 import os
-from datetime import date, datetime 
-from gerador_funcoes import criar_pdf 
+from datetime import date, datetime
+from gerador_funcoes import criar_pdf
 import io
-import traceback 
+import traceback
 
 # --- [MODIFICADO] --- Importações do Google Sheets
 from streamlit_gsheets import GSheetsConnection
 import gspread
 import pandas as pd
-import json # <--- [NOVA IMPORTAÇÃO]
+# REMOVIDO o 'import json'
 
 # --- DADOS DAS EMPRESAS (sem alteração) ---
 EMPRESAS = {
@@ -31,7 +31,7 @@ EMPRESAS = {
 
 # --- [NOVO] --- Definição das colunas da planilha
 COLUNAS_CLIENTES = [
-    'id', 'razao_social', 'cnpj', 'endereco', 'bairro', 'cidade', 'uf', 
+    'id', 'razao_social', 'cnpj', 'endereco', 'bairro', 'cidade', 'uf',
     'cep', 'inscricao_estadual', 'telefone', 'contato', 'email', 'data_cadastro'
 ]
 
@@ -46,38 +46,37 @@ except Exception as e:
 
 # --- [NOVO] --- FUNÇÕES DE BANCO DE DADOS (Google Sheets) ---
 
-@st.cache_data(ttl=15) # Cache de 15 segundos
+@st.cache_data(ttl=15)
 def carregar_aba(aba_nome):
     """Lê todos os dados de uma aba e retorna um DataFrame."""
     try:
-        # --- [CORREÇÃO AQUI] ---
-        # Convertendo o TEXTO (string) dos Secrets em um DICIONÁRIO (dict)
-        creds_json = json.loads(st.secrets["gsheets"]["service_account_info"])
-        sa = gspread.service_account_from_dict(creds_json)
+        # --- [CORREÇÃO: Revertido para o original] ---
+        # st.secrets vai ler o TOML e nos dar o dicionário diretamente.
+        sa = gspread.service_account_from_dict(st.secrets["gsheets"]["service_account_info"])
         # --- [FIM DA CORREÇÃO] ---
 
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
-        ws = sh.worksheet(aba_nome) # Encontra a aba pelo nome
-        
+        ws = sh.worksheet(aba_nome)
+
         dados = ws.get_all_values()
-        
+
         if len(dados) > 0:
             df = pd.DataFrame(dados[1:], columns=dados[0])
         else:
             df = pd.DataFrame(columns=COLUNAS_CLIENTES)
-            
-        df.dropna(how="all", inplace=True) 
+
+        df.dropna(how="all", inplace=True)
         if 'id' in df.columns:
             df['id'] = df['id'].astype(str)
         return df
-    
+
     except gspread.exceptions.WorksheetNotFound:
         st.error(f"Aba '{aba_nome}' não encontrada na sua planilha! Verifique o nome.")
-        return pd.DataFrame(columns=COLUNAS_CLIENTES) 
+        return pd.DataFrame(columns=COLUNAS_CLIENTES)
     except Exception as e:
         st.error(f"Erro ao carregar dados da aba '{aba_nome}': {e}")
-        traceback.print_exc() 
-        return pd.DataFrame(columns=COLUNAS_CLIENTES) 
+        traceback.print_exc()
+        return pd.DataFrame(columns=COLUNAS_CLIENTES)
 
 def get_all_clients():
     """Substitui a função antiga. Retorna lista de dicts."""
@@ -91,9 +90,9 @@ def get_client_by_id(client_id):
     df = carregar_aba("Clientes")
     if df.empty or 'id' not in df.columns:
         return None
-    
+
     cliente_df = df[df['id'] == str(client_id)]
-    
+
     if not cliente_df.empty:
         return cliente_df.to_dict('records')[0]
     return None
@@ -101,22 +100,20 @@ def get_client_by_id(client_id):
 def add_client(data_dict):
     """Substitui a função antiga. Adiciona cliente no Google Sheets."""
     try:
-        # --- [CORREÇÃO AQUI] ---
-        # Aplicando a mesma correção da função carregar_aba
-        creds_json = json.loads(st.secrets["gsheets"]["service_account_info"])
-        sa = gspread.service_account_from_dict(creds_json)
+        # --- [CORREÇÃO: Revertido para o original] ---
+        sa = gspread.service_account_from_dict(st.secrets["gsheets"]["service_account_info"])
         # --- [FIM DA CORREÇÃO] ---
 
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
-        ws = sh.worksheet("Clientes") # Nome EXATO da aba
+        ws = sh.worksheet("Clientes")
 
-        # 2. Checar duplicidade de CNPJ (lógica preservada)
+        # 2. Checar duplicidade de CNPJ
         try:
             cnpj_col_index = COLUNAS_CLIENTES.index('cnpj') + 1
         except ValueError:
             st.error("Erro crítico: Coluna 'cnpj' não encontrada. Verifique 'COLUNAS_CLIENTES'.")
             return False
-        
+
         cnpjs_existentes = ws.col_values(cnpj_col_index)
         if data_dict['cnpj'] in cnpjs_existentes:
             st.sidebar.error("Cliente com este CNPJ já existe.")
@@ -128,24 +125,24 @@ def add_client(data_dict):
         except ValueError:
             st.error("Erro crítico: Coluna 'id' não encontrada. Verifique 'COLUNAS_CLIENTES'.")
             return False
-            
-        ids = ws.col_values(id_col_index)[1:] # [1:] pula o header
-        ids_num = [int(i) for i in ids if i and i.isdigit()] # Filtra vazios e não-numéricos
+
+        ids = ws.col_values(id_col_index)[1:]
+        ids_num = [int(i) for i in ids if i and i.isdigit()]
         next_id = max(ids_num) + 1 if ids_num else 1
-        
+
         # 4. Montar a linha na ordem correta
         nova_linha = []
         data_dict['id'] = next_id
         data_dict['data_cadastro'] = datetime.now().strftime("%Y-%m-%d")
-        
+
         for coluna in COLUNAS_CLIENTES:
-            nova_linha.append(data_dict.get(coluna, "")) 
-        
+            nova_linha.append(data_dict.get(coluna, ""))
+
         # 5. Adicionar a linha e limpar o cache
         ws.append_row(nova_linha)
-        st.cache_data.clear() # Limpa o cache para recarregar os dados
+        st.cache_data.clear()
         return True
-    
+
     except gspread.exceptions.WorksheetNotFound:
         st.error("Aba 'Clientes' não foi encontrada na planilha. Não foi possível salvar.")
         return False
@@ -173,12 +170,12 @@ st.sidebar.title("Clientes")
 
 try:
     clientes = get_all_clients() # Chama a nova função
-    
+
     cliente_map = {}
     if clientes:
         clientes_validos = [c for c in clientes if c.get('razao_social') and c.get('id')]
         cliente_map = {f"{c['razao_social']} (ID: {c['id']})": c['id'] for c in clientes_validos}
-    
+
     opcoes_cliente = ["- Selecione um Cliente -"] + list(cliente_map.keys())
 
     cliente_selecionado_str = st.sidebar.selectbox("Carregar Cliente Existente", options=opcoes_cliente)
@@ -220,7 +217,7 @@ col_dados_gerais, col_itens = st.columns(2)
 
 with col_dados_gerais:
     st.subheader("Dados Gerais do Orçamento")
-    
+
     col_num, col_vend = st.columns(2)
     with col_num:
         orcamento_numero = st.number_input("Orçamento N°", min_value=1, value=10)
@@ -241,7 +238,7 @@ with col_dados_gerais:
         'contato': st.text_input("Contato", value=dados_cliente_atual['contato'] if dados_cliente_atual else ''),
         'email': st.text_input("E-mail", value=dados_cliente_atual['email'] if dados_cliente_atual else '')
     }
-    
+
     st.subheader("Condições e Entrega")
     pagamento_condicao = st.text_input("Cond. Pagamento", value="28/35/42 ddl")
     pagamento_qtde_parcelas = st.number_input("Quantidade de Parcelas", min_value=1, value=3, step=1)
@@ -250,7 +247,7 @@ with col_dados_gerais:
     st.subheader("Impostos")
     impostos_icms = st.number_input("ICMS (%)", min_value=0.0, value=18.0, format="%.2f")
     impostos_ipi = st.number_input("IPI (%)", min_value=0.0, value=0.0, format="%.2f")
-    
+
     st.subheader("Transporte e Observações")
     transportadora = {
         'nome': st.text_input("Transportadora"), 'cnpj': st.text_input("CNPJ da Transportadora"),
@@ -264,11 +261,11 @@ if 'itens' not in st.session_state:
 
 with col_itens:
     st.subheader("Itens do Orçamento")
-    
+
     with st.form(key="add_item_form", clear_on_submit=True):
         st.write("Adicionar novo item:")
         item_cols = st.columns([3, 1, 2, 1, 2])
-        
+
         with item_cols[0]:
             descricao = st.text_input("Descrição", "Chapa PSAI Tricamada")
         with item_cols[1]:
@@ -279,13 +276,13 @@ with col_itens:
             acabamento = st.text_input("Acabamento", "BM")
         with item_cols[4]:
             medida = st.text_input("Medida", "2000x1000x0,50mm")
-        
+
         item_cols_2 = st.columns([1, 1])
         with item_cols_2[0]:
             quantidade_kg = st.number_input("Qtd (KG)", min_value=0.01, value=1.0, format="%.2f")
-        with item_cols[1]:
+        with item_cols_2[1]:
             valor_kg = st.number_input("Valor (KG)", min_value=0.01, value=1.0, format="%.2f")
-        
+
         add_item_button = st.form_submit_button("Adicionar Item")
 
         if add_item_button:
@@ -294,7 +291,7 @@ with col_itens:
             else:
                 st.session_state.itens.append({
                     'descricao': descricao, 'filme': filme, 'cor_codigo': cor_codigo,
-                    'acabamento': acabamento, 'medida': medida, 
+                    'acabamento': acabamento, 'medida': medida,
                     'quantidade_kg': float(quantidade_kg), 'valor_kg': float(valor_kg),
                     'ipi_item': float(impostos_ipi)
                 })
@@ -306,9 +303,9 @@ with col_itens:
         for i, item in enumerate(st.session_state.itens):
             subtotal = item['quantidade_kg'] * item['valor_kg']
             st.text(f"{i+1}. {item['descricao']} ({item['medida']}) - {item['quantidade_kg']:.2f} KG x R${item['valor_kg']:.2f} = R${subtotal:,.2f}")
-        
+
         st.markdown(f"**Total das Mercadorias: R$ {total_preview:,.2f}**")
-        
+
         if st.button("Limpar Itens"):
             st.session_state.itens = []
             st.rerun()
@@ -321,7 +318,7 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
         st.error("Preencha, no mínimo, a Razão Social do cliente e adicione pelo menos um item.")
     else:
         with st.spinner("Gerando o arquivo PDF..."):
-            
+
             valor_mercadoria = sum(float(item['quantidade_kg']) * float(item['valor_kg']) for item in st.session_state.itens)
             ipi_percent = float(impostos_ipi)
             icms_percent = float(impostos_icms)
@@ -330,11 +327,11 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
             valor_ipi = valor_mercadoria * (ipi_percent / 100.0)
             total_nf = valor_mercadoria + valor_ipi
             valor_parcela = total_nf / qtde_parcelas_int if qtde_parcelas_int > 0 else 0
-            
+
             dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
 
             dados = {
-                'empresa': dados_empresa, 
+                'empresa': dados_empresa,
                 'orcamento_numero': orcamento_numero,
                 'data_emissao': date.today().strftime('%d/%m/%Y'),
                 'vendedor': vendedor,
@@ -342,7 +339,9 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'itens': st.session_state.itens,
                 'pagamento': {
                     'condicao': pagamento_condicao,
-                    'qtde_parcelas': qtde_parcelas_int,
+                    # --- [CORREÇÃO FINAL AQUI] ---
+                    'qtde_parcelas': qtde_parcelas_int, # Linha corrigida
+                    # --- [FIM DA CORREÇÃO] ---
                     'data_entrega': pagamento_data_entrega.strftime('%d/%m/%Y'),
                     'valor_parcela': valor_parcela
                 },
@@ -355,14 +354,14 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'transportadora': transportadora,
                 'observacoes': observacoes
             }
-            
+
             nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
-            
+
             pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=True)
 
             if pdf_bytes:
                 st.success(f"PDF '{nome_arquivo_pdf}' gerado com sucesso!")
-                
+
                 st.download_button(
                     label="Clique aqui para baixar o PDF",
                     data=pdf_bytes,
