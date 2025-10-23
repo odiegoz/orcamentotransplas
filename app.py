@@ -37,6 +37,7 @@ COLUNAS_CLIENTES = [
 
 # --- [MODIFICADO] --- Conexão com o Google Sheets
 # Substitui o init_db()
+# NOTA: Não estamos mais usando 'conn' para ler, mas deixamos aqui por enquanto.
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
@@ -53,24 +54,35 @@ except Exception as e:
 def carregar_aba(aba_nome):
     """Lê todos os dados de uma aba e retorna um DataFrame."""
     try:
-        # --- [ALTERAÇÃO AQUI] ---
-        # Vamos forçar a leitura da URL dos Secrets para evitar
-        # o erro 'Spreadsheet must be specified' por cache.
-        planilha_url = st.secrets["gsheets"]["spreadsheet"]
-        df = conn.read(spreadsheet=planilha_url, worksheet=aba_nome)
-        # --- [FIM DA ALTERAÇÃO] ---
+        # --- [PLANO C: MUDANDO A BIBLIOTECA DE LEITURA] ---
+        # Vamos usar a gspread para ler, assim como fazemos para escrever.
+        sa = gspread.service_account_from_dict(st.secrets["gsheets"]["service_account_info"])
+        sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
+        ws = sh.worksheet(aba_nome) # Encontra a aba pelo nome
         
+        # Lê todos os valores da planilha (como uma lista de listas)
+        # e converte para um DataFrame do Pandas
+        dados = ws.get_all_values()
+        
+        if len(dados) > 0:
+            # Usa a primeira linha como cabeçalho
+            df = pd.DataFrame(dados[1:], columns=dados[0])
+        else:
+            df = pd.DataFrame(columns=COLUNAS_CLIENTES)
+        # --- [FIM DA ALTERAÇÃO] ---
+            
         df.dropna(how="all", inplace=True) # Remove linhas totalmente vazias
         # Converte a coluna 'id' para string para consistência
         if 'id' in df.columns:
             df['id'] = df['id'].astype(str)
         return df
+    
+    except gspread.exceptions.WorksheetNotFound:
+        st.error(f"Aba '{aba_nome}' não encontrada na sua planilha! Verifique o nome.")
+        return pd.DataFrame(columns=COLUNAS_CLIENTES) # Retorna DF vazio
     except Exception as e:
-        # Se a aba não existir, gsheets-connection levanta um erro
-        if "WorksheetNotFound" in str(e):
-            st.error(f"Aba '{aba_nome}' não encontrada na sua planilha!")
-            return pd.DataFrame(columns=COLUNAS_CLIENTES) # Retorna DF vazio com colunas
         st.error(f"Erro ao carregar dados da aba '{aba_nome}': {e}")
+        traceback.print_exc() # Mostra o erro completo
         return pd.DataFrame(columns=COLUNAS_CLIENTES) # Retorna DF vazio
 
 def get_all_clients():
