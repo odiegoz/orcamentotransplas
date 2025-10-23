@@ -1,12 +1,16 @@
 import streamlit as st
 import os
-from datetime import date
+from datetime import date, datetime # --- [MODIFICADO] --- Importa 'datetime'
 from gerador_funcoes import criar_pdf # Importa a função corrigida
-from database import init_db, get_all_clients, get_client_by_id, add_client
 import io
 import traceback # Importado para logs
 
-# --- DADOS DAS EMPRESAS ---
+# --- [MODIFICADO] --- Importações do Google Sheets
+from st_gsheets_connection import GSheetsConnection
+import gspread
+import pandas as pd
+
+# --- DADOS DAS EMPRESAS (sem alteração) ---
 EMPRESAS = {
     "ISOFORMA": {
         'nome': "ISOFORMA PLASTICOS INDUSTRIAIS LTDA",
@@ -24,18 +28,128 @@ EMPRESAS = {
     }
 }
 
-# Inicializa o banco de dados
+# --- [NOVO] --- Definição das colunas da planilha
+# Garante que a ordem e os nomes estejam corretos.
+COLUNAS_CLIENTES = [
+    'id', 'razao_social', 'cnpj', 'endereco', 'bairro', 'cidade', 'uf', 
+    'cep', 'inscricao_estadual', 'telefone', 'contato', 'email', 'data_cadastro'
+]
+
+# --- [MODIFICADO] --- Conexão com o Google Sheets
+# Substitui o init_db()
 try:
-    init_db()
+    conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
-    st.error(f"Falha ao inicializar o banco de dados: {e}")
-    traceback.print_exc()
+    st.error("Falha ao conectar com o Google Sheets. Verifique seus 'Secrets'.")
+    st.exception(e)
     st.stop()
+
+
+# --- [NOVO] --- FUNÇÕES DE BANCO DE DADOS (Google Sheets) ---
+
+# O @st.cache_data guarda o resultado em cache para não ler a planilha
+# a cada interação do usuário, economizando tempo e cotas da API.
+@st.cache_data(ttl=15) # Cache de 15 segundos
+def carregar_aba(aba_nome):
+    """Lê todos os dados de uma aba e retorna um DataFrame."""
+    try:
+        df = conn.read(worksheet=aba_nome)
+        df.dropna(how="all", inplace=True) # Remove linhas totalmente vazias
+        # Converte a coluna 'id' para string para consistência
+        if 'id' in df.columns:
+            df['id'] = df['id'].astype(str)
+        return df
+    except Exception as e:
+        # Se a aba não existir, gsheets-connection levanta um erro
+        if "WorksheetNotFound" in str(e):
+            st.error(f"Aba '{aba_nome}' não encontrada na sua planilha!")
+            return pd.DataFrame(columns=COLUNAS_CLIENTES) # Retorna DF vazio com colunas
+        st.error(f"Erro ao carregar dados da aba '{aba_nome}': {e}")
+        return pd.DataFrame(columns=COLUNAS_CLIENTES) # Retorna DF vazio
+
+def get_all_clients():
+    """Substitui a função antiga. Retorna lista de dicts."""
+    df = carregar_aba("Clientes")
+    if df.empty:
+        return []
+    # Converte o DataFrame para o formato que seu código esperava (lista de dicts)
+    return df.to_dict('records')
+
+def get_client_by_id(client_id):
+    """Substitui a função antiga. Retorna um dict ou None."""
+    df = carregar_aba("Clientes")
+    if df.empty or 'id' not in df.columns:
+        return None
+    
+    # Filtra o DataFrame pelo ID (que agora é string)
+    cliente_df = df[df['id'] == str(client_id)]
+    
+    if not cliente_df.empty:
+        # Retorna o primeiro (e único) cliente como um dicionário
+        return cliente_df.to_dict('records')[0]
+    return None
+
+def add_client(data_dict):
+    """Substitui a função antiga. Adiciona cliente no Google Sheets."""
+    try:
+        # 1. Autenticar com gspread (melhor para escrever)
+        sa = gspread.service_account_from_dict(st.secrets["gsheets"]["service_account_info"])
+        sh = sa.open_by_url(st.secrets["spreadsheet_url"])
+        ws = sh.worksheet("Clientes") # Nome EXATO da aba
+
+        # 2. Checar duplicidade de CNPJ (lógica preservada)
+        try:
+            # Pega o índice da coluna 'cnpj' (ex: 3)
+            cnpj_col_index = COLUNAS_CLIENTES.index('cnpj') + 1
+        except ValueError:
+            st.error("Erro crítico: Coluna 'cnpj' não encontrada. Verifique 'COLUNAS_CLIENTES'.")
+            return False
+        
+        cnpjs_existentes = ws.col_values(cnpj_col_index)
+        if data_dict['cnpj'] in cnpjs_existentes:
+            st.sidebar.error("Cliente com este CNPJ já existe.")
+            return False
+
+        # 3. Pegar próximo ID
+        try:
+            id_col_index = COLUNAS_CLIENTES.index('id') + 1
+        except ValueError:
+            st.error("Erro crítico: Coluna 'id' não encontrada. Verifique 'COLUNAS_CLIENTES'.")
+            return False
+            
+        ids = ws.col_values(id_col_index)[1:] # [1:] pula o header
+        ids_num = [int(i) for i in ids if i and i.isdigit()] # Filtra vazios e não-numéricos
+        next_id = max(ids_num) + 1 if ids_num else 1
+        
+        # 4. Montar a linha na ordem correta
+        nova_linha = []
+        data_dict['id'] = next_id
+        data_dict['data_cadastro'] = datetime.now().strftime("%Y-%m-%d")
+        
+        for coluna in COLUNAS_CLIENTES:
+            # .get() é seguro, retorna "" se a chave não existir no dict
+            nova_linha.append(data_dict.get(coluna, "")) 
+        
+        # 5. Adicionar a linha e limpar o cache
+        ws.append_row(nova_linha)
+        st.cache_data.clear() # Limpa o cache para recarregar os dados
+        return True
+    
+    except gspread.exceptions.WorksheetNotFound:
+        st.error("Aba 'Clientes' não foi encontrada na planilha. Não foi possível salvar.")
+        return False
+    except Exception as e:
+        st.error(f"Erro ao salvar no Google Sheets:")
+        st.exception(e)
+        return False
+
+# --- FIM DAS NOVAS FUNÇÕES DE BANCO DE DADOS ---
+
 
 st.set_page_config(layout="wide", page_title="Gerador de Orçamentos")
 st.title("📄 Gerador de Propostas e Orçamentos")
 
-# --- SELEÇÃO DA EMPRESA ---
+# --- SELEÇÃO DA EMPRESA (sem alteração) ---
 empresa_selecionada_nome = st.selectbox(
     "**Selecione a Empresa para o Orçamento**",
     options=list(EMPRESAS.keys())
@@ -44,11 +158,22 @@ st.markdown("---")
 
 
 # --- BARRA LATERAL PARA GERENCIAR CLIENTES ---
+# --- [MODIFICADO] ---
+# O código aqui dentro é IDÊNTICO, mas agora ele chama
+# as NOVAS funções (get_all_clients, get_client_by_id, add_client)
+# que conversam com o Google Sheets.
 st.sidebar.title("Clientes")
 
 try:
-    clientes = get_all_clients()
-    cliente_map = {f"{c['razao_social']} (ID: {c['id']})": c['id'] for c in clientes}
+    clientes = get_all_clients() # Chama a nova função
+    
+    # Criar o mapa de clientes
+    cliente_map = {}
+    if clientes:
+        # Filtra clientes que podem não ter 'razao_social' ou 'id' (embora não devesse)
+        clientes_validos = [c for c in clientes if c.get('razao_social') and c.get('id')]
+        cliente_map = {f"{c['razao_social']} (ID: {c['id']})": c['id'] for c in clientes_validos}
+    
     opcoes_cliente = ["- Selecione um Cliente -"] + list(cliente_map.keys())
 
     cliente_selecionado_str = st.sidebar.selectbox("Carregar Cliente Existente", options=opcoes_cliente)
@@ -57,7 +182,7 @@ try:
         cliente_id = cliente_map[cliente_selecionado_str]
         if 'cliente_id' not in st.session_state or st.session_state.cliente_id != cliente_id:
             st.session_state.cliente_id = cliente_id
-            st.session_state.dados_cliente = get_client_by_id(cliente_id)
+            st.session_state.dados_cliente = get_client_by_id(cliente_id) # Chama a nova função
             st.rerun()
 
     with st.sidebar.expander("➕ Adicionar Novo Cliente", expanded=False):
@@ -76,16 +201,18 @@ try:
                 if not new_cliente_data['razao_social'] or not new_cliente_data['cnpj']:
                     st.sidebar.error("Razão Social e CNPJ são obrigatórios.")
                 else:
-                    if add_client(new_cliente_data):
+                    if add_client(new_cliente_data): # Chama a nova função
                         st.sidebar.success("Cliente salvo!")
                         st.rerun()
-                    else:
-                        st.sidebar.error("Cliente com este CNPJ já existe.")
+                    # A msg de erro de CNPJ já é mostrada dentro da função add_client
 except Exception as e:
     st.sidebar.error(f"Erro ao carregar clientes: {e}")
     traceback.print_exc() # Loga o erro completo no terminal/logs
 
-# --- FORMULÁRIO PRINCIPAL DO ORÇAMENTO ---
+# --- FORMULÁRIO PRINCIPAL DO ORÇAMENTO (sem alteração) ---
+# Esta seção inteira funciona perfeitamente, pois ela lê os dados
+# do 'st.session_state.dados_cliente', que foi preenchido
+# pela nova lógica do Google Sheets.
 dados_cliente_atual = st.session_state.get('dados_cliente', None)
 col_dados_gerais, col_itens = st.columns(2)
 
@@ -129,6 +256,7 @@ with col_dados_gerais:
     }
     observacoes = st.text_area("Observações")
 
+# --- LÓGICA DOS ITENS (sem alteração) ---
 if 'itens' not in st.session_state:
     st.session_state.itens = []
 
@@ -158,7 +286,6 @@ with col_itens:
         
         add_item_button = st.form_submit_button("Adicionar Item")
 
-        # --- CORREÇÃO: Adicionada validação de valor e st.rerun() ---
         if add_item_button:
             if not descricao or quantidade_kg <= 0 or valor_kg <= 0:
                 st.warning("Preencha a descrição, Qtd (KG) > 0 e Valor (KG) > 0.")
@@ -186,7 +313,7 @@ with col_itens:
 
 st.markdown("---")
 
-# --- CORREÇÃO: Lógica do botão "Gerar PDF" ---
+# --- GERAÇÃO DO PDF (sem alteração) ---
 if st.button("Gerar PDF do Orçamento", type="primary"):
     if not cliente['razao_social'] or not st.session_state.itens:
         st.error("Preencha, no mínimo, a Razão Social do cliente e adicione pelo menos um item.")
@@ -202,11 +329,10 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
             total_nf = valor_mercadoria + valor_ipi
             valor_parcela = total_nf / qtde_parcelas_int if qtde_parcelas_int > 0 else 0
             
-            # Copia os dados da empresa selecionada para não modificar o original
             dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
 
             dados = {
-                'empresa': dados_empresa, # Passa o dicionário da empresa
+                'empresa': dados_empresa, 
                 'orcamento_numero': orcamento_numero,
                 'data_emissao': date.today().strftime('%d/%m/%Y'),
                 'vendedor': vendedor,
@@ -228,22 +354,18 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'observacoes': observacoes
             }
             
-            # 1. Definir o nome do arquivo para download
             nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
             
-            # 2. Chamar a função em memória (ela retorna bytes)
             pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=True)
 
-            # 3. Verificar se os bytes foram criados
             if pdf_bytes:
                 st.success(f"PDF '{nome_arquivo_pdf}' gerado com sucesso!")
                 
-                # 4. Usar os bytes diretamente no st.download_button
                 st.download_button(
                     label="Clique aqui para baixar o PDF",
                     data=pdf_bytes,
                     file_name=nome_arquivo_pdf,
-                    mime="application/pdf" # Mime type correto para PDF
+                    mime="application/pdf"
                 )
             else:
                 st.error("Ocorreu um erro ao gerar o PDF. Verifique os logs.")
