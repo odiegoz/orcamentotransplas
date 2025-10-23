@@ -1,14 +1,15 @@
 import streamlit as st
 import os
-from datetime import date, datetime # --- [MODIFICADO] --- Importa 'datetime'
-from gerador_funcoes import criar_pdf # Importa a função corrigida
+from datetime import date, datetime 
+from gerador_funcoes import criar_pdf 
 import io
-import traceback # Importado para logs
+import traceback 
 
 # --- [MODIFICADO] --- Importações do Google Sheets
 from streamlit_gsheets import GSheetsConnection
 import gspread
 import pandas as pd
+import json # <--- [NOVA IMPORTAÇÃO]
 
 # --- DADOS DAS EMPRESAS (sem alteração) ---
 EMPRESAS = {
@@ -29,15 +30,12 @@ EMPRESAS = {
 }
 
 # --- [NOVO] --- Definição das colunas da planilha
-# Garante que a ordem e os nomes estejam corretos.
 COLUNAS_CLIENTES = [
     'id', 'razao_social', 'cnpj', 'endereco', 'bairro', 'cidade', 'uf', 
     'cep', 'inscricao_estadual', 'telefone', 'contato', 'email', 'data_cadastro'
 ]
 
 # --- [MODIFICADO] --- Conexão com o Google Sheets
-# Substitui o init_db()
-# NOTA: Não estamos mais usando 'conn' para ler, mas deixamos aqui por enquanto.
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
@@ -48,49 +46,44 @@ except Exception as e:
 
 # --- [NOVO] --- FUNÇÕES DE BANCO DE DADOS (Google Sheets) ---
 
-# O @st.cache_data guarda o resultado em cache para não ler a planilha
-# a cada interação do usuário, economizando tempo e cotas da API.
 @st.cache_data(ttl=15) # Cache de 15 segundos
 def carregar_aba(aba_nome):
     """Lê todos os dados de uma aba e retorna um DataFrame."""
     try:
-        # --- [PLANO C: MUDANDO A BIBLIOTECA DE LEITURA] ---
-        # Vamos usar a gspread para ler, assim como fazemos para escrever.
-        sa = gspread.service_account_from_dict(st.secrets["gsheets"]["service_account_info"])
+        # --- [CORREÇÃO AQUI] ---
+        # Convertendo o TEXTO (string) dos Secrets em um DICIONÁRIO (dict)
+        creds_json = json.loads(st.secrets["gsheets"]["service_account_info"])
+        sa = gspread.service_account_from_dict(creds_json)
+        # --- [FIM DA CORREÇÃO] ---
+
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet(aba_nome) # Encontra a aba pelo nome
         
-        # Lê todos os valores da planilha (como uma lista de listas)
-        # e converte para um DataFrame do Pandas
         dados = ws.get_all_values()
         
         if len(dados) > 0:
-            # Usa a primeira linha como cabeçalho
             df = pd.DataFrame(dados[1:], columns=dados[0])
         else:
             df = pd.DataFrame(columns=COLUNAS_CLIENTES)
-        # --- [FIM DA ALTERAÇÃO] ---
             
-        df.dropna(how="all", inplace=True) # Remove linhas totalmente vazias
-        # Converte a coluna 'id' para string para consistência
+        df.dropna(how="all", inplace=True) 
         if 'id' in df.columns:
             df['id'] = df['id'].astype(str)
         return df
     
     except gspread.exceptions.WorksheetNotFound:
         st.error(f"Aba '{aba_nome}' não encontrada na sua planilha! Verifique o nome.")
-        return pd.DataFrame(columns=COLUNAS_CLIENTES) # Retorna DF vazio
+        return pd.DataFrame(columns=COLUNAS_CLIENTES) 
     except Exception as e:
         st.error(f"Erro ao carregar dados da aba '{aba_nome}': {e}")
-        traceback.print_exc() # Mostra o erro completo
-        return pd.DataFrame(columns=COLUNAS_CLIENTES) # Retorna DF vazio
+        traceback.print_exc() 
+        return pd.DataFrame(columns=COLUNAS_CLIENTES) 
 
 def get_all_clients():
     """Substitui a função antiga. Retorna lista de dicts."""
     df = carregar_aba("Clientes")
     if df.empty:
         return []
-    # Converte o DataFrame para o formato que seu código esperava (lista de dicts)
     return df.to_dict('records')
 
 def get_client_by_id(client_id):
@@ -99,25 +92,26 @@ def get_client_by_id(client_id):
     if df.empty or 'id' not in df.columns:
         return None
     
-    # Filtra o DataFrame pelo ID (que agora é string)
     cliente_df = df[df['id'] == str(client_id)]
     
     if not cliente_df.empty:
-        # Retorna o primeiro (e único) cliente como um dicionário
         return cliente_df.to_dict('records')[0]
     return None
 
 def add_client(data_dict):
     """Substitui a função antiga. Adiciona cliente no Google Sheets."""
     try:
-        # 1. Autenticar com gspread (melhor para escrever)
-        sa = gspread.service_account_from_dict(st.secrets["gsheets"]["service_account_info"])
+        # --- [CORREÇÃO AQUI] ---
+        # Aplicando a mesma correção da função carregar_aba
+        creds_json = json.loads(st.secrets["gsheets"]["service_account_info"])
+        sa = gspread.service_account_from_dict(creds_json)
+        # --- [FIM DA CORREÇÃO] ---
+
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet("Clientes") # Nome EXATO da aba
 
         # 2. Checar duplicidade de CNPJ (lógica preservada)
         try:
-            # Pega o índice da coluna 'cnpj' (ex: 3)
             cnpj_col_index = COLUNAS_CLIENTES.index('cnpj') + 1
         except ValueError:
             st.error("Erro crítico: Coluna 'cnpj' não encontrada. Verifique 'COLUNAS_CLIENTES'.")
@@ -145,7 +139,6 @@ def add_client(data_dict):
         data_dict['data_cadastro'] = datetime.now().strftime("%Y-%m-%d")
         
         for coluna in COLUNAS_CLIENTES:
-            # .get() é seguro, retorna "" se a chave não existir no dict
             nova_linha.append(data_dict.get(coluna, "")) 
         
         # 5. Adicionar a linha e limpar o cache
@@ -176,19 +169,13 @@ st.markdown("---")
 
 
 # --- BARRA LATERAL PARA GERENCIAR CLIENTES ---
-# --- [MODIFICADO] ---
-# O código aqui dentro é IDÊNTICO, mas agora ele chama
-# as NOVAS funções (get_all_clients, get_client_by_id, add_client)
-# que conversam com o Google Sheets.
 st.sidebar.title("Clientes")
 
 try:
     clientes = get_all_clients() # Chama a nova função
     
-    # Criar o mapa de clientes
     cliente_map = {}
     if clientes:
-        # Filtra clientes que podem não ter 'razao_social' ou 'id' (embora não devesse)
         clientes_validos = [c for c in clientes if c.get('razao_social') and c.get('id')]
         cliente_map = {f"{c['razao_social']} (ID: {c['id']})": c['id'] for c in clientes_validos}
     
@@ -228,9 +215,6 @@ except Exception as e:
     traceback.print_exc() # Loga o erro completo no terminal/logs
 
 # --- FORMULÁRIO PRINCIPAL DO ORÇAMENTO (sem alteração) ---
-# Esta seção inteira funciona perfeitamente, pois ela lê os dados
-# do 'st.session_state.dados_cliente', que foi preenchido
-# pela nova lógica do Google Sheets.
 dados_cliente_atual = st.session_state.get('dados_cliente', None)
 col_dados_gerais, col_itens = st.columns(2)
 
@@ -299,7 +283,7 @@ with col_itens:
         item_cols_2 = st.columns([1, 1])
         with item_cols_2[0]:
             quantidade_kg = st.number_input("Qtd (KG)", min_value=0.01, value=1.0, format="%.2f")
-        with item_cols_2[1]:
+        with item_cols[1]:
             valor_kg = st.number_input("Valor (KG)", min_value=0.01, value=1.0, format="%.2f")
         
         add_item_button = st.form_submit_button("Adicionar Item")
