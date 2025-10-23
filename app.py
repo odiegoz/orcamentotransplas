@@ -31,8 +31,8 @@ EMPRESAS = {
 
 # --- [NOVO] --- Definição das colunas da planilha
 COLUNAS_CLIENTES = [
-    'id', 'razao_social', 'cnpj', 'endereco', 'bairro', 'cidade', 'uf',
-    'cep', 'inscricao_estadual', 'telefone', 'contato', 'email', 'data_cadastro'
+    'id', 'razao_social', 'endereco', 'bairro', 'cidade', 'uf',
+    'cep', 'cnpj', 'inscricao_estadual', 'telefone', 'contato', 'email', 'data_cadastro'
 ]
 
 # --- [MODIFICADO] --- Conexão com o Google Sheets
