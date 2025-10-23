@@ -94,7 +94,7 @@ def add_client(data_dict):
     try:
         # 1. Autenticar com gspread (melhor para escrever)
         sa = gspread.service_account_from_dict(st.secrets["gsheets"]["service_account_info"])
-        sh = sa.open_by_url(st.secrets["spreadsheet_url"])
+        sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet("Clientes") # Nome EXATO da aba
 
         # 2. Checar duplicidade de CNPJ (lógica preservada)
