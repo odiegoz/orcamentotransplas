@@ -29,11 +29,18 @@ EMPRESAS = {
     }
 }
 
-# --- [NOVO] --- Definição das colunas da planilha
+# --- [MODIFICADO] --- Definição das colunas da planilha
 COLUNAS_CLIENTES = [
     'id', 'razao_social', 'endereco', 'bairro', 'cidade', 'uf',
     'cep', 'cnpj', 'inscricao_estadual', 'telefone', 'contato', 'email', 'data_cadastro'
 ]
+
+# --- [NOVO] --- Definição das colunas de Produtos
+COLUNAS_PRODUTOS = [
+    'id', 'sku', 'descricao', 'filme', 'cor_codigo', 'acabamento', 
+    'medida', 'valor_kg', 'data_cadastro'
+]
+
 
 # --- [MODIFICADO] --- Conexão com o Google Sheets
 try:
@@ -44,17 +51,15 @@ except Exception as e:
     st.stop()
 
 
-# --- [NOVO] --- FUNÇÕES DE BANCO DE DADOS (Google Sheets) ---
+# --- [MODIFICADO] --- FUNÇÕES DE BANCO DE DADOS (Google Sheets) ---
 
 @st.cache_data(ttl=15)
-def carregar_aba(aba_nome):
+def carregar_aba(aba_nome, colunas_esperadas): # <-- [MODIFICADO] Adicionado 'colunas_esperadas'
     """Lê todos os dados de uma aba e retorna um DataFrame."""
     try:
-        # --- [CORREÇÃO: Usando json.loads()] ---
         creds_json_text = st.secrets["gsheets"]["service_account_info"]
         creds_json = json.loads(creds_json_text)
         sa = gspread.service_account_from_dict(creds_json)
-        # --- [FIM DA CORREÇÃO] ---
 
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet(aba_nome)
@@ -64,36 +69,46 @@ def carregar_aba(aba_nome):
         if len(dados) > 0:
             df = pd.DataFrame(dados[1:], columns=dados[0])
         else:
-            df = pd.DataFrame(columns=COLUNAS_CLIENTES)
+            # [MODIFICADO] Usa o argumento
+            df = pd.DataFrame(columns=colunas_esperadas) 
 
         df.dropna(how="all", inplace=True)
         if 'id' in df.columns:
             df['id'] = df['id'].astype(str)
+        
+        # [NOVO] Garantir que colunas numéricas sejam tratadas
+        if 'valor_kg' in df.columns:
+             df['valor_kg'] = pd.to_numeric(df['valor_kg'], errors='coerce').fillna(0.0)
+
         return df
 
     except gspread.exceptions.WorksheetNotFound:
         st.error(f"Aba '{aba_nome}' não encontrada na sua planilha! Verifique o nome.")
-        return pd.DataFrame(columns=COLUNAS_CLIENTES)
+        return pd.DataFrame(columns=colunas_esperadas) # [MODIFICADO]
     except json.JSONDecodeError as e:
         st.error(f"Erro ao ler o JSON das credenciais nos Secrets: {e}")
         st.error("Verifique se o JSON em 'service_account_info' está formatado corretamente e sem caracteres inválidos.")
         traceback.print_exc()
-        return pd.DataFrame(columns=COLUNAS_CLIENTES)
+        return pd.DataFrame(columns=colunas_esperadas) # [MODIFICADO]
     except Exception as e:
         st.error(f"Erro ao carregar dados da aba '{aba_nome}': {e}")
         traceback.print_exc()
-        return pd.DataFrame(columns=COLUNAS_CLIENTES)
+        return pd.DataFrame(columns=colunas_esperadas) # [MODIFICADO]
+
+# --- Funções de Clientes (Modificadas para usar a nova 'carregar_aba') ---
 
 def get_all_clients():
-    """Substitui a função antiga. Retorna lista de dicts."""
-    df = carregar_aba("Clientes")
+    """Retorna lista de dicts de clientes."""
+    # [MODIFICADO] Passa as colunas esperadas
+    df = carregar_aba("Clientes", COLUNAS_CLIENTES) 
     if df.empty:
         return []
     return df.to_dict('records')
 
 def get_client_by_id(client_id):
-    """Substitui a função antiga. Retorna um dict ou None."""
-    df = carregar_aba("Clientes")
+    """Retorna um dict do cliente ou None."""
+    # [MODIFICADO] Passa as colunas esperadas
+    df = carregar_aba("Clientes", COLUNAS_CLIENTES)
     if df.empty or 'id' not in df.columns:
         return None
 
@@ -104,18 +119,16 @@ def get_client_by_id(client_id):
     return None
 
 def add_client(data_dict):
-    """Substitui a função antiga. Adiciona cliente no Google Sheets."""
+    """Adiciona cliente no Google Sheets."""
     try:
-        # --- [CORREÇÃO: Usando json.loads()] ---
         creds_json_text = st.secrets["gsheets"]["service_account_info"]
         creds_json = json.loads(creds_json_text)
         sa = gspread.service_account_from_dict(creds_json)
-        # --- [FIM DA CORREÇÃO] ---
 
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet("Clientes")
 
-        # 2. Checar duplicidade de CNPJ
+        # Checar duplicidade de CNPJ
         try:
             cnpj_col_index = COLUNAS_CLIENTES.index('cnpj') + 1
         except ValueError:
@@ -123,15 +136,95 @@ def add_client(data_dict):
             return False
 
         cnpjs_existentes = ws.col_values(cnpj_col_index)
-        if data_dict['cnpj'] in cnpjs_existentes:
+        if data_dict['cnpj'] and data_dict['cnpj'] in cnpjs_existentes: # [MODIFICADO] Checa se cnpj não é vazio
             st.sidebar.error("Cliente com este CNPJ já existe.")
             return False
 
-        # 3. Pegar próximo ID
+        # Pegar próximo ID
         try:
             id_col_index = COLUNAS_CLIENTES.index('id') + 1
         except ValueError:
             st.error("Erro crítico: Coluna 'id' não encontrada. Verifique 'COLUNAS_CLIENTES'.")
+            return False
+
+        ids = ws.col_values(id_col_index)[1:]
+        ids_num = [int(i) for i in ids if i and i.isdigit()]
+        next_id = max(ids_num) + 1 if ids_num else 1
+
+        # Montar a linha na ordem correta
+        nova_linha = []
+        data_dict['id'] = next_id
+        data_dict['data_cadastro'] = datetime.now().strftime("%Y-%m-%d")
+
+        for coluna in COLUNAS_CLIENTES:
+            nova_linha.append(data_dict.get(coluna, ""))
+
+        # Adicionar a linha e limpar o cache
+        ws.append_row(nova_linha)
+        st.cache_data.clear()
+        return True
+
+    except gspread.exceptions.WorksheetNotFound:
+        st.error("Aba 'Clientes' não foi encontrada na planilha. Não foi possível salvar.")
+        return False
+    except json.JSONDecodeError as e:
+        st.error(f"Erro ao ler o JSON das credenciais nos Secrets: {e}")
+        st.error("Verifique se o JSON em 'service_account_info' está formatado corretamente.")
+        traceback.print_exc()
+        return False
+    except Exception as e:
+        st.error(f"Erro ao salvar no Google Sheets:")
+        st.exception(e)
+        return False
+
+# --- [NOVO] --- FUNÇÕES DE PRODUTOS ---
+
+def get_all_products():
+    """Carrega todos os produtos da aba 'Produtos'."""
+    df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
+    if df.empty:
+        return []
+    return df.to_dict('records')
+
+def get_product_by_id(product_id):
+    """Busca um produto pelo ID."""
+    df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
+    if df.empty or 'id' not in df.columns:
+        return None
+    
+    produto_df = df[df['id'] == str(product_id)]
+    
+    if not produto_df.empty:
+        return produto_df.to_dict('records')[0]
+    return None
+
+def add_product(data_dict):
+    """Adiciona um novo produto na aba 'Produtos'."""
+    try:
+        creds_json_text = st.secrets["gsheets"]["service_account_info"]
+        creds_json = json.loads(creds_json_text)
+        sa = gspread.service_account_from_dict(creds_json)
+
+        sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
+        ws = sh.worksheet("Produtos") # <-- Aponta para a aba "Produtos"
+
+        # 2. Checar duplicidade de SKU
+        try:
+            sku_col_index = COLUNAS_PRODUTOS.index('sku') + 1
+        except ValueError:
+            st.error("Erro crítico: Coluna 'sku' não encontrada. Verifique 'COLUNAS_PRODUTOS'.")
+            return False
+
+        skus_existentes = ws.col_values(sku_col_index)
+        if data_dict['sku'] and data_dict['sku'] in skus_existentes: # <-- Checa SKU
+            st.sidebar.error("Produto com este SKU já existe.")
+            return False
+
+        # 3. Pegar próximo ID
+        try:
+            id_col_index = COLUNAS_PRODUTOS.index('id') + 1
+        except ValueError:
+            st.error("Erro crítico: Coluna 'id' não encontrada. Verifique 'COLUNAS_PRODUTOS'.")
             return False
 
         ids = ws.col_values(id_col_index)[1:]
@@ -143,7 +236,7 @@ def add_client(data_dict):
         data_dict['id'] = next_id
         data_dict['data_cadastro'] = datetime.now().strftime("%Y-%m-%d")
 
-        for coluna in COLUNAS_CLIENTES:
+        for coluna in COLUNAS_PRODUTOS: # <-- Usa COLUNAS_PRODUTOS
             nova_linha.append(data_dict.get(coluna, ""))
 
         # 5. Adicionar a linha e limpar o cache
@@ -152,15 +245,10 @@ def add_client(data_dict):
         return True
 
     except gspread.exceptions.WorksheetNotFound:
-        st.error("Aba 'Clientes' não foi encontrada na planilha. Não foi possível salvar.")
-        return False
-    except json.JSONDecodeError as e:
-        st.error(f"Erro ao ler o JSON das credenciais nos Secrets: {e}")
-        st.error("Verifique se o JSON em 'service_account_info' está formatado corretamente e sem caracteres inválidos.")
-        traceback.print_exc()
+        st.error("Aba 'Produtos' não foi encontrada na planilha. Não foi possível salvar.")
         return False
     except Exception as e:
-        st.error(f"Erro ao salvar no Google Sheets:")
+        st.error(f"Erro ao salvar Produto no Google Sheets:")
         st.exception(e)
         return False
 
@@ -179,10 +267,11 @@ st.markdown("---")
 
 
 # --- BARRA LATERAL PARA GERENCIAR CLIENTES ---
-st.sidebar.title("Clientes")
+st.sidebar.title("Gerenciamento")
+st.sidebar.header("Clientes")
 
 try:
-    clientes = get_all_clients() # Chama a nova função
+    clientes = get_all_clients() 
 
     cliente_map = {}
     if clientes:
@@ -197,7 +286,7 @@ try:
         cliente_id = cliente_map[cliente_selecionado_str]
         if 'cliente_id' not in st.session_state or st.session_state.cliente_id != cliente_id:
             st.session_state.cliente_id = cliente_id
-            st.session_state.dados_cliente = get_client_by_id(cliente_id) # Chama a nova função
+            st.session_state.dados_cliente = get_client_by_id(cliente_id) 
             st.rerun()
 
     with st.sidebar.expander("➕ Adicionar Novo Cliente", expanded=False):
@@ -216,17 +305,43 @@ try:
                 if not new_cliente_data['razao_social'] or not new_cliente_data['cnpj']:
                     st.sidebar.error("Razão Social e CNPJ são obrigatórios.")
                 else:
-                    if add_client(new_cliente_data): # Chama a nova função
+                    if add_client(new_cliente_data): 
                         st.sidebar.success("Cliente salvo!")
                         st.rerun()
-                    # A msg de erro de CNPJ já é mostrada dentro da função add_client
 except Exception as e:
     st.sidebar.error(f"Erro ao carregar clientes: {e}")
-    traceback.print_exc() # Loga o erro completo no terminal/logs
+    traceback.print_exc() 
+
+# --- [NOVO] --- BARRA LATERAL PARA GERENCIAR PRODUTOS ---
+st.sidebar.header("📦 Produtos")
+
+try:
+    with st.sidebar.expander("➕ Adicionar Novo Produto", expanded=False):
+        with st.form("new_product_form", clear_on_submit=True):
+            new_product_data = {
+                'sku': st.text_input("SKU (Código)*"),
+                'descricao': st.text_input("Descrição*"),
+                'filme': st.text_input("Filme", "Não"),
+                'cor_codigo': st.text_input("Cor-Código", "Branco Tricamada"),
+                'acabamento': st.text_input("Acabamento", "BM"),
+                'medida': st.text_input("Medida", "2000x1000x0,50mm"),
+                'valor_kg': st.number_input("Valor Padrão (KG)", min_value=0.0, value=1.0, format="%.2f")
+            }
+            submitted_prod = st.form_submit_button("Salvar Novo Produto")
+            if submitted_prod:
+                if not new_product_data['sku'] or not new_product_data['descricao']:
+                    st.sidebar.error("SKU e Descrição são obrigatórios.")
+                else:
+                    if add_product(new_product_data):
+                        st.sidebar.success("Produto salvo!")
+                        st.rerun() # Força recarregar o selectbox de produtos
+                    # Msg de erro (SKU duplicado) já aparece na função
+except Exception as e:
+    st.sidebar.error(f"Erro nas operações de produto: {e}")
+    traceback.print_exc()
+
 
 # --- FORMULÁRIO PRINCIPAL DO ORÇAMENTO (sem alteração) ---
-# ... (o resto do seu código continua igual e não precisa ser modificado) ...
-# --- Copie o restante do seu código a partir daqui ---
 dados_cliente_atual = st.session_state.get('dados_cliente', None)
 col_dados_gerais, col_itens = st.columns(2)
 
@@ -274,29 +389,65 @@ with col_dados_gerais:
 if 'itens' not in st.session_state:
     st.session_state.itens = []
 
+# --- [MODIFICADO] --- COLUNA DE ITENS ---
 with col_itens:
     st.subheader("Itens do Orçamento")
+
+    # --- [NOVO] Carregador de Produtos ---
+    try:
+        produtos_db = get_all_products()
+        produto_map = {}
+        if produtos_db:
+            produtos_validos = [p for p in produtos_db if p.get('descricao') and p.get('id')]
+            # Mapeia a string de exibição para o dicionário completo do produto
+            produto_map = {f"{p['descricao']} (SKU: {p.get('sku', 'N/A')})": p for p in produtos_validos}
+        
+        opcoes_produto = ["- Digitar Manualmente -"] + list(produto_map.keys())
+        
+        # Este selectbox fica FORA do form. Ao mudar, ele recarrega o app
+        # e os valores padrão do form abaixo são atualizados.
+        produto_selecionado_str = st.selectbox(
+            "Carregar Produto do Banco de Dados", 
+            options=opcoes_produto, 
+            key="produto_select" # Uma chave para o widget
+        )
+        
+        # Pega os dados do produto selecionado ou um dict vazio se for manual
+        produto_default = {}
+        if produto_selecionado_str != "- Digitar Manualmente -":
+            produto_default = produto_map[produto_selecionado_str]
+    
+    except Exception as e:
+        st.error(f"Erro ao carregar produtos do BD: {e}")
+        produto_default = {} # Garante que 'produto_default' exista
+    # --- Fim do Carregador de Produtos ---
+
 
     with st.form(key="add_item_form", clear_on_submit=True):
         st.write("Adicionar novo item:")
         item_cols = st.columns([3, 1, 2, 1, 2])
 
+        # [MODIFICADO] Os campos agora usam 'value' para preencher 
+        # com os dados do 'produto_default' carregado acima.
+        
         with item_cols[0]:
-            descricao = st.text_input("Descrição", "Chapa PSAI Tricamada")
+            descricao = st.text_input("Descrição", value=produto_default.get('descricao', 'Chapa PSAI Tricamada'))
         with item_cols[1]:
-            filme = st.text_input("Filme", "Não")
+            filme = st.text_input("Filme", value=produto_default.get('filme', 'Não'))
         with item_cols[2]:
-            cor_codigo = st.text_input("Cor-Código", "Branco Tricamada")
+            cor_codigo = st.text_input("Cor-Código", value=produto_default.get('cor_codigo', 'Branco Tricamada'))
         with item_cols[3]:
-            acabamento = st.text_input("Acabamento", "BM")
+            acabamento = st.text_input("Acabamento", value=produto_default.get('acabamento', 'BM'))
         with item_cols[4]:
-            medida = st.text_input("Medida", "2000x1000x0,50mm")
+            medida = st.text_input("Medida", value=produto_default.get('medida', '2000x1000x0,50mm'))
 
         item_cols_2 = st.columns([1, 1])
         with item_cols_2[0]:
             quantidade_kg = st.number_input("Qtd (KG)", min_value=0.01, value=1.0, format="%.2f")
         with item_cols_2[1]:
-            valor_kg = st.number_input("Valor (KG)", min_value=0.01, value=1.0, format="%.2f")
+            # [MODIFICADO] Converte o 'valor_kg' para float, com fallback
+            valor_kg_default = float(produto_default.get('valor_kg', 1.0) or 1.0)
+            valor_kg = st.number_input("Valor (KG)", min_value=0.01, value=valor_kg_default, format="%.2f")
 
         add_item_button = st.form_submit_button("Adicionar Item")
 
@@ -354,7 +505,7 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'itens': st.session_state.itens,
                 'pagamento': {
                     'condicao': pagamento_condicao,
-                    'qtde_parcelas': qtde_parcelas_int, # Linha corrigida no último ajuste
+                    'qtde_parcelas': qtde_parcelas_int, 
                     'data_entrega': pagamento_data_entrega.strftime('%d/%m/%Y'),
                     'valor_parcela': valor_parcela
                 },
