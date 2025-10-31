@@ -3,4 +3,5 @@ st-gsheets-connection
 gspread
 pandas
 jinja2
+xhtml2pdf
 weasyprint==61.2
