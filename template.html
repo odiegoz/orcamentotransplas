@@ -4,64 +4,66 @@
 <meta charset="utf-8">
 <title>Orçamento</title>
 <style>
-  /* Paleta base (fixa p/ xhtml2pdf) */
-  /* azul escuro: #2b5f86 | rótulos: #2f4f6a | texto: #1f3b5b | borda: #cfe5f6 | caixa: #eaf5fc */
+  /* Paleta fixa */
+  /* azul escuro: #2b5f86 | texto: #1f3b5b | borda: #cfe5f6 | caixa: #eaf5fc */
 
-  /* Marca d’água */
+  /* --- Marca d’água agora no HTML (controlável via background-size) --- */
+  html{
+    background-image:url("{{ watermark_datauri if watermark_datauri else ('data:image/png;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
+    background-repeat:no-repeat;
+    background-position:center center;
+    background-size:32%; /* ajuste aqui: 25% menor / 40% maior */
+  }
+
+  body{
+    font-family:Arial, Helvetica, sans-serif;
+    color:#222; font-size:9pt;
+    margin:0; padding:12mm;   /* Mantém margem visual */
+    background:transparent;
+  }
+
+  /* Remove marcas d’água antigas do @page */
   @page{
     size:A4 portrait;
     margin:12mm;
-    background-image:url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
-    background-repeat:no-repeat;
-    background-position:center center;
   }
-
-  html,body{
-    background-image:url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
-    background-repeat:no-repeat; background-position:center center; background-attachment:fixed;
-    font-family:Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box;
-  }
-  *,*:before,*:after{ box-sizing:inherit; }
 
   /* Cabeçalho */
-  .company-info{ display:block; width:100%; text-align:left; }
-  .logo-top{ height:48px; width:auto; display:block; margin-bottom:6px; }
-  .company-info h1{ font-size:15pt; margin:0 0 2px 0; color:#1f3b5b; }
+  .company-info{ margin-bottom:6px; }
+  .logo-top{ height:48px; margin-bottom:6px; }
+  .company-info h1{ font-size:15pt; margin:0; color:#1f3b5b; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
-  .meta{ width:100%; border-collapse:collapse; margin:8px 0 6px 0; }
-  .meta td{ padding:2px 4px; vertical-align:top; }
-  .meta td.left{ font-weight:700; font-size:11pt; color:#1f3b5b; }
-  .meta td.right{ text-align:right; font-size:8.5pt; color:#444; }
+  .meta{ width:100%; border-collapse:collapse; margin:8px 0; }
+  .meta td{ padding:2px 4px; }
+  .meta .left{ font-size:11pt; font-weight:700; color:#1f3b5b; }
+  .meta .right{ text-align:right; font-size:8.5pt; color:#444; }
 
   .section-title{
-    font-weight:700; font-size:12pt; margin:12px 0 8px 0;
-    border-bottom:2px solid #2b5f86; padding-bottom:4px; color:#2b5f86;
-    text-transform:uppercase; letter-spacing:.2px;
+    font-weight:700; font-size:12pt;
+    border-bottom:2px solid #2b5f86;
+    margin:12px 0 6px 0;
+    padding-bottom:4px; color:#2b5f86;
   }
 
-  .info-box-simple div{ padding:3px 0; font-size:8.5pt; }
+  .info-box-simple div{
+    padding:2px 0; font-size:8.5pt;
+  }
   .info-box-simple strong{
-    width:130px; display:inline-block; white-space:nowrap;
-    font-weight:700; color:#1f3b5b;
+    width:130px; display:inline-block; color:#1f3b5b;
   }
 
-  /* Tabela de Itens — cabeçalho com fundo / corpo transparente */
+  /* Tabela de Itens — cabeçalho leve / corpo totalmente transparente */
   .items-table{
-    width:100%;
-    border-collapse: separate;   /* <<< chave p/ transparência */
-    border-spacing: 0;           /* evita gap entre células */
-    table-layout: fixed;
+    width:100%; border-collapse:separate;
+    border-spacing:0; table-layout:fixed;
+    background:transparent !important;
     margin-top:6px;
-    background: transparent !important;
   }
 
   .items-table thead th{
-    background:#eaf5fc;
-    color:#1f3b5b;
-    padding:6px;
-    font-size:10pt;
-    text-align:left;
+    background:#eaf5fc; color:#1f3b5b;
+    padding:6px; font-size:10pt; text-align:left;
     border-bottom:2px solid #cfe5f6;
   }
   .items-table thead th.text-right{ text-align:right; }
@@ -69,35 +71,30 @@
   .items-table tbody td{
     padding:6px;
     border-bottom:1px solid #e6eaf0;
-    vertical-align:top;
     font-size:8.8pt;
   }
 
-  .item-desc{ font-weight:700; margin-bottom:4px; color:#1f3b5b; }
-  .item-sub{ font-size:8pt; color:#555; }
-
-  .value-cell{ text-align:right; letter-spacing:.2px; }
-
-  /* Força transparência REAL (ordem importa — deixe no fim da tabela) */
-  .items-table tbody,
-  .items-table tbody tr,
-  .items-table tbody td,
-  .items-table tbody * {
-    background: transparent !important;
-    background-color: transparent !important;
+  /* Força transparência REAL */
+  .items-table tbody, .items-table tr, .items-table td{
+    background:transparent !important;
   }
 
-  /* Totais — caixa menor à direita */
-  .totals-container{ width:100%; border-collapse:collapse; margin-top:10px; }
+  .item-desc{ font-weight:700; margin-bottom:3px; color:#1f3b5b; }
+  .item-sub{ font-size:8pt; color:#555; }
+  .value-cell{ text-align:right; }
+
+  /* Totais em caixa pequena à direita */
+  .totals-container{ width:100%; margin-top:10px; }
   .totals-left{ width:60%; }
-  .totals-right{ width:40%; }
+  .totals-right{ width:40%; text-align:right; }
 
   .summary{
-    width:100%;
+    display:inline-table;
+    border-collapse:collapse;
     background:#f9fbfe;
     border:1px solid #cfe5f6;
-    border-collapse:collapse;
     font-size:9pt;
+    width:auto;
   }
   .summary td{ padding:6px 8px; color:#2f4f6a; }
   .summary .text-right{ text-align:right; font-weight:700; color:#1f3b5b; }
@@ -105,14 +102,16 @@
     background:#eaf5fc; border-top:1px solid #cfe5f6; font-weight:700; font-size:11pt;
   }
 
+  /* Observações */
   .obs-box{
     background:#f7fbff; border:1px solid #e4effa;
-    padding:6px 8px; margin-top:6px; border-radius:3px; color:#2f4f6a;
+    padding:6px 8px; margin-top:6px; color:#2f4f6a;
   }
 
   .pdf-footer{
-    position:fixed; bottom:10mm; left:12mm; right:12mm;
-    text-align:center; font-size:8pt; color:#666; border-top:1px solid #ccc; padding-top:5px;
+    margin-top:18px;
+    text-align:center; font-size:8pt; color:#666;
+    border-top:1px solid #ccc; padding-top:5px;
   }
 </style>
 </head>
@@ -120,7 +119,7 @@
 
 <div class="company-info">
   {% if empresa.logo_base64 %}
-    <img class="logo-top" src="data:image/jpeg;base64,{{ empresa.logo_base64 }}">
+    <img class="logo-top" src="data:image/png;base64,{{ empresa.logo_base64 }}">
   {% endif %}
   <h1>{{ empresa.nome }}</h1>
   <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
@@ -128,13 +127,13 @@
 </div>
 
 <table class="meta">
-  <tr>
-    <td class="left">Orçamento N°: {{ orcamento_numero }}</td>
-    <td class="right">
-      <div><strong>Data:</strong> {{ data_emissao }}</div>
-      <div><strong>Vendedor:</strong> {{ vendedor }}</div>
-    </td>
-  </tr>
+<tr>
+  <td class="left">Orçamento Nº: {{ orcamento_numero }}</td>
+  <td class="right">
+    <strong>Data:</strong> {{ data_emissao }}<br>
+    <strong>Vendedor:</strong> {{ vendedor }}
+  </td>
+</tr>
 </table>
 
 <div class="section-title">Dados do Cliente</div>
@@ -153,38 +152,44 @@
 <div class="section-title">Itens do Orçamento</div>
 
 <table class="items-table">
-  <thead>
-    <tr>
-      <th style="width:78%;">Descrição dos Produtos</th>
-      <th class="text-right" style="width:22%;">Total s/ IPI</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for item in itens %}
-    <tr>
-      <td>
-        <div class="item-desc">{{ item.descricao }}</div>
-        <div class="item-sub"><strong>Medida:</strong> {{ item.medida }} | <strong>Cor:</strong> {{ item.cor_codigo }} | <strong>Acab:</strong> {{ item.acabamento }} | <strong>Filme:</strong> {{ item.filme }}</div>
-        <div class="item-sub">{{ "%.2f"|format(item.quantidade_kg) }} KG × R$ {{ "%.2f"|format(item.valor_kg) }} — IPI {{ "%.2f"|format(item.ipi_item) }}%</div>
-      </td>
-      <td class="value-cell">R$ {{ "%.2f"|format(item.quantidade_kg * item.valor_kg) }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
+<thead>
+<tr>
+  <th style="width:78%;">Descrição dos Produtos</th>
+  <th class="text-right" style="width:22%;">Total s/ IPI</th>
+</tr>
+</thead>
+<tbody>
+{% for item in itens %}
+<tr>
+  <td>
+    <div class="item-desc">{{ item.descricao }}</div>
+    <div class="item-sub">
+      <strong>Medida:</strong> {{ item.medida }} | 
+      <strong>Cor:</strong> {{ item.cor_codigo }} | 
+      <strong>Acab:</strong> {{ item.acabamento }} | 
+      <strong>Filme:</strong> {{ item.filme }}
+    </div>
+    <div class="item-sub">{{ "%.2f"|format(item.quantidade_kg) }} KG × R$ {{ "%.2f"|format(item.valor_kg) }} — IPI {{ "%.2f"|format(item.ipi_item) }}%</div>
+  </td>
+  <td class="value-cell">R$ {{ "%.2f"|format(item.quantidade_kg * item.valor_kg) }}</td>
+</tr>
+{% endfor %}
+</tbody>
 </table>
 
+<!-- Totais -->
 <table class="totals-container">
-  <tr>
-    <td class="totals-left"></td>
-    <td class="totals-right">
-      <table class="summary">
-        <tr><td class="label">Base Cálculo ICMS:</td><td class="text-right">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td></tr>
-        <tr><td class="label">ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td><td class="text-right">(informativo)</td></tr>
-        <tr><td class="label">Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td><td class="text-right">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td></tr>
-        <tr class="total-row"><td>Total NF:</td><td class="text-right">R$ {{ "%.2f"|format(totais.total_nf) }}</td></tr>
-      </table>
-    </td>
-  </tr>
+<tr>
+  <td class="totals-left"></td>
+  <td class="totals-right">
+    <table class="summary">
+      <tr><td>Base Cálculo ICMS:</td><td class="text-right">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td></tr>
+      <tr><td>ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td><td class="text-right">(informativo)</td></tr>
+      <tr><td>Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td><td class="text-right">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td></tr>
+      <tr class="total-row"><td>Total NF:</td><td class="text-right">R$ {{ "%.2f"|format(totais.total_nf) }}</td></tr>
+    </table>
+  </td>
+</tr>
 </table>
 
 <div class="section-title">Transportadora e Observações</div>
