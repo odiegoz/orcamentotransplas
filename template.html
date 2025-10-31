@@ -9,15 +9,29 @@
     --cor-principal: #367c2b; /* Tom de verde da logo Isoforma */
   }
 
-  @page { size: A4 portrait; margin: 12mm; }
+  /* --- MARCA D’ÁGUA COMPATÍVEL COM XHTML2PDF ---
+     Ela é aplicada como background da PÁGINA (todas as páginas).
+     A opacidade vem do próprio PNG (transparência do arquivo). */
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+    background-image: url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
+    background-repeat: no-repeat;
+    background-position: center center;
+    /* background-size não é padrão no xhtml2pdf em @page; se precisar menor,
+       reduza a imagem na origem (PNG) ou deixe o PNG com mais margem. */
+  }
+
+  /* Para visualização em tela (não afeta o PDF, mas ajuda no preview): */
+  html, body {
+    background-image: url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-attachment: fixed;
+  }
+
   html,body { font-family: Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box; -webkit-text-size-adjust:none; }
   *,*:before,*:after { box-sizing:inherit; }
-
-  /* --- WATERMARK (xhtml2pdf-friendly) ---
-     DICA: para ficar "discreta", use PNG com transparência no próprio arquivo.
-     xhtml2pdf nem sempre respeita CSS 'opacity', então prefira alpha do PNG. */
-  #wm-wrap { position: fixed; top: 58%; left: 50%; transform: translate(-50%, -50%); width: 60%; text-align: center; }
-  #wm { width: 100%; } /* imagem escala pelo wrap */
 
   /* --- CABEÇALHO --- */
   .company-info { display: block; width: 100%; }
@@ -34,20 +48,20 @@
   .meta .right { text-align:right; font-size:8.5pt; }
 
   /* --- Títulos de Seção --- */
-  .section-title {
-    font-weight:700;
-    font-size:11pt;
-    margin: 15px 0 8px 0;
-    border-bottom: 2px solid #367c2b;
+  .section-title { 
+    font-weight:700; 
+    font-size:11pt; 
+    margin: 15px 0 8px 0; 
+    border-bottom: 2px solid #367c2b; 
     padding-bottom: 4px;
-    color: #367c2b;
+    color: #367c2b; 
   }
   .meta + .section-title { margin-top: 8px; }
 
   /* --- Blocos simples --- */
-  .info-box-simple div {
-    padding-bottom: 3px;
-    font-size: 8.5pt;
+  .info-box-simple div { 
+    padding-bottom: 3px; 
+    font-size: 8.5pt; 
     line-height: 1.3;
   }
   .info-box-simple strong {
@@ -60,13 +74,13 @@
 
   /* --- Tabela de Itens --- */
   .items-table { width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
-  .items-table thead th {
+  .items-table thead th { 
     background: #367c2b;
     color: #ffffff;
     padding: 8px 6px;
-    font-size: 10pt;
-    text-align:left;
-    border-bottom:1px solid #ddd;
+    font-size: 10pt; 
+    text-align:left; 
+    border-bottom:1px solid #ddd; 
   }
   .items-table thead th.text-right { text-align:right; }
   .items-table tbody td { padding: 8px 6px; border-bottom:1px solid #eee; vertical-align:top; font-size:9pt; }
@@ -74,27 +88,35 @@
   .item-desc { font-weight:700; margin:0 0 4px 0; }
   .item-sub { margin:0; font-size:8pt; color:#555; line-height:1.3; }
 
-  .items-table tfoot td {
-    padding: 8px 6px;
-    font-weight:700;
-    background:#f0f0f0;
-    border-top:1px solid #ddd;
-    text-align:right;
+  .items-table tfoot td { 
+    padding: 8px 6px; 
+    font-weight:700; 
+    background:#f0f0f0; 
+    border-top:1px solid #ddd; 
+    text-align:right; 
     font-size: 10pt;
   }
 
   /* --- Tabela de Totais --- */
-  .summary-wrapper { width: 100%; margin-top: 10px; }
-  .summary {
-    width: 50%;
-    float: right;
-    border-collapse: collapse;
-    font-size: 9pt;
-    background: #f9f9f9;
-    border: 1px solid #eee;
+  .summary-wrapper {
+    width: 100%;
+    margin-top: 10px;
   }
-  .summary td { padding: 5px 8px; }
-  .summary .text-right { text-align: right; font-weight: 700; }
+  .summary { 
+    width: 50%; 
+    float: right; 
+    border-collapse: collapse; 
+    font-size: 9pt; 
+    background: #f9f9f9; 
+    border: 1px solid #eee; 
+  }
+  .summary td { 
+    padding: 5px 8px; 
+  }
+  .summary .text-right { 
+    text-align: right; 
+    font-weight: 700;
+  }
   .summary .total-row td {
     font-size: 11pt;
     background: #f0f0f0;
@@ -102,15 +124,15 @@
   }
 
   /* --- Rodapé --- */
-  .pdf-footer {
-    position: fixed;
-    bottom: 10mm;
-    left: 12mm;
-    right: 12mm;
-    text-align:center;
-    font-size:8pt;
-    color:#666;
-    border-top: 1px solid #ccc;
+  .pdf-footer { 
+    position: fixed; 
+    bottom: 10mm; 
+    left: 12mm; 
+    right: 12mm; 
+    text-align:center; 
+    font-size:8pt; 
+    color:#666; 
+    border-top: 1px solid #ccc; 
     padding-top: 5px;
   }
   h1, p { margin: 0; padding: 0; }
@@ -118,9 +140,7 @@
 
   /* ---- Regras de impressão ---- */
   @media print {
-    html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-    thead { display: table-header-group; }  /* repete cabeçalho */
+    thead { display: table-header-group; }
     tfoot { display: table-footer-group; }
 
     table { page-break-inside: auto; }
@@ -132,19 +152,10 @@
     .company-info { page-break-inside: avoid; break-inside: avoid; }
 
     .section-title { page-break-after: avoid; }
-
-    /* Opcional: quebra “bonita” a cada 22 linhas
-       .items-table tbody tr:nth-child(22n) { page-break-after: always; }
-    */
   }
 </style>
 </head>
 <body>
-
-<!-- WATERMARK: coloque ANTES do conteúdo para ficar “atrás” (pintura em ordem DOM) -->
-<div id="wm-wrap">
-  <img id="wm" src="{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}" alt="watermark">
-</div>
 
 <div class="company-info">
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
@@ -152,6 +163,7 @@
     <div class="header-logo-block">
       <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" width="80" style="width: 80px; height: auto;">
     </div>
+
     <!-- Bloco de Informação -->
     <div class="header-info-block">
       <h1>{{ empresa.nome }}</h1>
