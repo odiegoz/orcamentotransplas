@@ -14,12 +14,14 @@ import pandas as pd
 from gerador_funcoes import criar_pdf
 
 # ------------------------------------------------------------
-# CONFIG
+# CONFIG & TÍTULO
 # ------------------------------------------------------------
 st.set_page_config(layout="wide", page_title="Gerador de Propostas e Orçamentos")
 st.title("📄 Gerador de Propostas e Orçamentos")
 
-# --- DADOS DAS EMPRESAS ---
+# ------------------------------------------------------------
+# DADOS DAS EMPRESAS
+# ------------------------------------------------------------
 EMPRESAS = {
     "ISOFORMA": {
         'nome': "ISOFORMA PLASTICOS INDUSTRIAIS LTDA",
@@ -37,7 +39,9 @@ EMPRESAS = {
     }
 }
 
-# --- COLUNAS ---
+# ------------------------------------------------------------
+# COLUNAS
+# ------------------------------------------------------------
 COLUNAS_CLIENTES = [
     'id', 'razao_social', 'endereco', 'bairro', 'cidade', 'uf',
     'cep', 'cnpj', 'inscricao_estadual', 'telefone', 'contato', 'email', 'data_cadastro'
@@ -58,7 +62,7 @@ except Exception as e:
     st.stop()
 
 # ------------------------------------------------------------
-# HELPERS: MARCA D'ÁGUA
+# WATERMARK HELPERS
 # ------------------------------------------------------------
 def to_data_uri(path: Path):
     """Converte imagem local em data URI (base64). Retorna None se não achar."""
@@ -68,7 +72,7 @@ def to_data_uri(path: Path):
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
 
 def find_watermark_path():
-    """Tenta localizar a imagem watermark.png em caminhos comuns (local/cloud)."""
+    """Tenta localizar watermark.png em caminhos comuns (local/cloud)."""
     candidates = [
         Path(__file__).parent / "watermark.png",
         Path(__file__).parent / "assets" / "watermark.png",
@@ -475,7 +479,7 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
 
             dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
 
-            # Marca d'água: localizar arquivo e converter
+            # Marca d'água: localizar arquivo e converter (Base64 data URI)
             wm_path = find_watermark_path()
             watermark_datauri = to_data_uri(wm_path) if wm_path else None
             if watermark_datauri is None:
@@ -503,12 +507,11 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'transportadora': transportadora,
                 'observacoes': observacoes,
 
-                # >>> NOVO: passa a marca d'água (data URI) para o template
+                # >>> passa a marca d'água ao template
                 'watermark_datauri': watermark_datauri
             }
 
             nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
-
             pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=True)
 
             if pdf_bytes:

@@ -13,27 +13,11 @@
   html,body { font-family: Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box; -webkit-text-size-adjust:none; }
   *,*:before,*:after { box-sizing:inherit; }
 
-  /* --- MARCA D'ÁGUA DISCRETA (central, menor) --- */
-  /* Usa {{ watermark_datauri }} (data:image/...;base64,...) se vier do app.
-     Caso contrário, tenta cair na logo base64 da empresa (se houver). */
-  body { position: relative; }
-  body > * { position: relative; z-index: 1; }
-  body::before {
-    content: "";
-    position: fixed;
-    top: 60%;
-    left: 50%;
-    width: 38%;
-    height: 38%;
-    background-image: url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    opacity: 0.07; /* ajuste 0.05–0.12 conforme desejar */
-    transform: translate(-50%, -50%);
-    z-index: 0;  /* funciona melhor que -1 em alguns geradores de PDF */
-    pointer-events: none;
-  }
+  /* --- WATERMARK (xhtml2pdf-friendly) ---
+     DICA: para ficar "discreta", use PNG com transparência no próprio arquivo.
+     xhtml2pdf nem sempre respeita CSS 'opacity', então prefira alpha do PNG. */
+  #wm-wrap { position: fixed; top: 58%; left: 50%; transform: translate(-50%, -50%); width: 60%; text-align: center; }
+  #wm { width: 100%; } /* imagem escala pelo wrap */
 
   /* --- CABEÇALHO --- */
   .company-info { display: block; width: 100%; }
@@ -60,7 +44,7 @@
   }
   .meta + .section-title { margin-top: 8px; }
 
-  /* --- Layout dos blocos de informação --- */
+  /* --- Blocos simples --- */
   .info-box-simple div {
     padding-bottom: 3px;
     font-size: 8.5pt;
@@ -68,8 +52,8 @@
   }
   .info-box-simple strong {
     font-weight: 700;
-    width: 130px; /* Largura fixa para o rótulo */
-    display: inline-block; /* Permite que o texto flua ao lado */
+    width: 130px;
+    display: inline-block;
     white-space: nowrap;
     vertical-align: top;
   }
@@ -156,6 +140,11 @@
 </style>
 </head>
 <body>
+
+<!-- WATERMARK: coloque ANTES do conteúdo para ficar “atrás” (pintura em ordem DOM) -->
+<div id="wm-wrap">
+  <img id="wm" src="{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}" alt="watermark">
+</div>
 
 <div class="company-info">
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
