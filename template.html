@@ -9,13 +9,11 @@
      azul escuro:      #2b5f86
      azul rótulos:     #2f4f6a
      texto escuro:     #1f3b5b
-     cabeçalho tabela: #d7ebf9
      borda suave:      #cfe5f6
      caixa suave:      #eaf5fc
-     zebra clara:      #fafcff
   */
 
-  /* Marca d’água em todas as páginas */
+  /* Marca d’água em todas as páginas (use PNG transparente) */
   @page {
     size: A4 portrait;
     margin: 12mm;
@@ -65,35 +63,37 @@
     font-weight:700; color:#1f3b5b;
   }
 
-  /* Tabela de itens */
+  /* Tabela de itens — TRANSPARENTE (mostra a watermark ao fundo) */
   .items-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
   .items-table thead th{
-    background:#d7ebf9;
+    /* sem background para transparência */
+    background: transparent;
     color:#1f3b5b;
-    padding:8px 6px;
+    padding:6px 6px;
     font-size:10pt;
     text-align:left;
-    border-bottom:2px solid #cfe5f6;
+    border-bottom:2px solid #cfe5f6; /* só linha inferior */
   }
   .items-table thead th.text-right{ text-align:right; }
-
-  /* Zebra via classes (compatível com xhtml2pdf) */
-  .zebra-odd { background:#fafcff; }
-  .zebra-even{ background:#ffffff; }
-
   .items-table tbody td{
-    padding:8px 6px; border-bottom:1px solid #eee; vertical-align:top; font-size:8.8pt;
+    padding:6px 6px;
+    border-bottom:1px solid #e6eaf0;  /* linhas finas */
+    vertical-align:top; font-size:8.8pt;
+    background: transparent;          /* sem preenchimento */
   }
   .value-cell{ text-align:right; letter-spacing:.2px; }
 
-  /* Tabela de Totais (vertical à direita) */
+  .item-desc{ font-weight:700; margin:0 0 4px 0; color:#1f3b5b; }
+  .item-sub{ margin:0; font-size:8pt; color:#555; line-height:1.3; }
+
+  /* Tabela de Totais (VERTICAL, MENOR, no canto direito) */
   .summary-wrapper{ width:100%; margin-top:10px; }
   .summary{
-    width:50%;
+    width:40%;              /* <<< mais estreita (ajuste aqui: 35–45%) */
     float:right;
     border-collapse:collapse;
     font-size:9pt;
-    background:#f9fbfe;
+    background:#f9fbfe;     /* leve caixa */
     border:1px solid #cfe5f6;
   }
   .summary td{ padding:6px 8px; }
@@ -178,7 +178,7 @@
   </thead>
   <tbody>
     {% for item in itens %}
-    <tr class="{% if loop.index0 % 2 == 0 %}zebra-odd{% else %}zebra-even{% endif %}">
+    <tr>
       <td>
         <div class="item-desc">{{ item.descricao }}</div>
         <div class="item-sub">
@@ -195,7 +195,7 @@
   </tbody>
 </table>
 
-<!-- RESUMO VERTICAL (direita) -->
+<!-- RESUMO VERTICAL (menor, canto direito) -->
 <div class="summary-wrapper">
   <table class="summary">
     <tr>
