@@ -4,119 +4,98 @@
 <meta charset="utf-8">
 <title>Orçamento</title>
 <style>
-  /* Paleta fixa (xhtml2pdf não aceita CSS variables)
-     azul pastel:      #5aa6d1
-     azul escuro:      #2b5f86
-     azul rótulos:     #2f4f6a
-     texto escuro:     #1f3b5b
-     borda suave:      #cfe5f6
-     caixa suave:      #eaf5fc
-  */
+  /* Paleta fixa */
+  /* azul escuro: #2b5f86 | rótulos: #2f4f6a | texto: #1f3b5b | borda suave: #cfe5f6 | caixa suave: #eaf5fc */
 
-  /* Marca d’água em todas as páginas (PNG transparente) */
-  @page {
-    size: A4 portrait;
-    margin: 12mm;
-    background-image: url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
-    background-repeat: no-repeat;
-    background-position: center center;
+  /* Marca d’água em todas as páginas (PNG transparente recomendado) */
+  @page{
+    size:A4 portrait;
+    margin:12mm;
+    background-image:url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
+    background-repeat:no-repeat;
+    background-position:center center;
   }
 
   /* Preview em tela (não afeta o PDF) */
-  html, body {
-    background-image: url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-attachment: fixed;
+  html,body{
+    background-image:url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
+    background-repeat:no-repeat; background-position:center center; background-attachment:fixed;
+    font-family:Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box;
   }
-
-  html,body{ font-family: Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box; }
   *,*:before,*:after{ box-sizing:inherit; }
 
   /* Cabeçalho */
   .company-info{ display:block; width:100%; text-align:left; }
-  .logo-top{ height:48px; width:auto; display:block; margin:0 0 6px 0; } /* logo acima do nome */
+  .logo-top{ height:48px; width:auto; display:block; margin:0 0 6px 0; }
   .company-info h1{ font-size:15pt; margin:0 0 2px 0; color:#1f3b5b; line-height:1.1; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
-  .meta { width:100%; border-collapse:collapse; margin:8px 0 6px 0; }
-  .meta td { padding:2px 4px; vertical-align:top; }
+  .meta{ width:100%; border-collapse:collapse; margin:8px 0 6px 0; }
+  .meta td{ padding:2px 4px; vertical-align:top; }
   .meta td.left{ font-weight:700; font-size:11pt; color:#1f3b5b; }
   .meta td.right{ text-align:right; font-size:8.5pt; color:#444; }
 
   /* Títulos de seção */
   .section-title{
-    font-weight:700; font-size:12pt;
-    margin:12px 0 8px 0;
-    border-bottom:2px solid #2b5f86;
-    padding-bottom:4px;
-    color:#2b5f86;
-    text-transform:uppercase;
-    letter-spacing:.2px;
+    font-weight:700; font-size:12pt; margin:12px 0 8px 0;
+    border-bottom:2px solid #2b5f86; padding-bottom:4px; color:#2b5f86;
+    text-transform:uppercase; letter-spacing:.2px;
   }
+  /* (1) Remover linha azul SOMENTE no bloco “Dados do Cliente” */
+  .section-title.no-border{ border-bottom:none; margin-bottom:4px; }
 
   /* Blocos simples */
-  .info-box-simple div{ padding:3px 0; font-size:8.5pt; line-height:1.3; border-bottom:1px dashed #e6eef7; }
-  .info-box-simple div:last-child{ border-bottom:none; }
+  .info-box-simple div{ padding:3px 0; font-size:8.5pt; line-height:1.3; }
   .info-box-simple strong{
     width:130px; display:inline-block; white-space:nowrap; vertical-align:top;
     font-weight:700; color:#1f3b5b;
   }
 
-  /* Tabela de itens — TRANSPARENTE (mostra a watermark) */
+  /* (2) Tabela de itens — TRANSPARENTE para a watermark aparecer */
   .items-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
   .items-table thead th{
-    background: transparent;             /* sem fundo */
+    background:transparent; /* sem fundo */
     color:#1f3b5b;
-    padding:6px 6px;
-    font-size:10pt;
-    text-align:left;
-    border-bottom:2px solid #cfe5f6;     /* só linha inferior */
+    padding:6px 6px; font-size:10pt; text-align:left;
+    border-bottom:2px solid #cfe5f6; /* só linha inferior */
   }
   .items-table thead th.text-right{ text-align:right; }
   .items-table tbody td{
     padding:6px 6px;
-    border-bottom:1px solid #e6eaf0;     /* linhas finas */
+    border-bottom:1px solid #e6eaf0; /* linhas finas */
     vertical-align:top; font-size:8.8pt;
-    background: transparent;             /* sem preenchimento */
+    background:transparent;           /* sem preenchimento */
   }
-  .value-cell{ text-align:right; letter-spacing:.2px; }
-
   .item-desc{ font-weight:700; margin:0 0 4px 0; color:#1f3b5b; }
   .item-sub{ margin:0; font-size:8pt; color:#555; line-height:1.3; }
+  .value-cell{ text-align:right; letter-spacing:.2px; }
 
-  /* Totais (VERTICAL, CARTÃO PEQUENO no canto direito) */
-  .summary-wrap{ width:100%; margin-top:10px; text-align:right; } /* empurra o conteúdo à direita */
+  /* (3) Totais — cartão pequeno à direita */
+  .summary-wrap{ width:100%; margin-top:10px; text-align:right; }
   .summary{
-    display:inline-table;   /* vira um “card” que respeita width */
-    width:40%;              /* <<< ajuste fino aqui (ex.: 35%) */
+    display:inline-table;   /* vira um card alinhado à direita */
+    width:32%;             /* menor; ajuste 28–40% se quiser */
     border-collapse:collapse;
     font-size:9pt;
-    background:#f9fbfe;
+    background:#f9fbfe;    /* leve caixa; troque para transparent se quiser ver total sobre a watermark */
     border:1px solid #cfe5f6;
-    text-align:left;        /* rótulos à esquerda */
+    text-align:left;
   }
   .summary td{ padding:6px 8px; }
   .summary .label{ color:#2f4f6a; }
   .summary .text-right{ text-align:right; font-weight:700; color:#1f3b5b; }
   .summary .total-row td{
     font-size:11pt; font-weight:700;
-    background:#eaf5fc; border-top:1px solid #cfe5f6;
-    color:#1f3b5b;
+    background:#eaf5fc; border-top:1px solid #cfe5f6; color:#1f3b5b;
   }
 
-  /* Observações em caixa suave */
-  .obs-box{
-    background:#f7fbff; border:1px solid #e4effa; padding:6px 8px; border-radius:3px;
-    color:#2f4f6a; margin-top:6px; clear:both;
-  }
+  /* Observações */
+  .obs-box{ background:#f7fbff; border:1px solid #e4effa; padding:6px 8px; border-radius:3px; color:#2f4f6a; margin-top:6px; clear:both; }
 
   /* Rodapé */
   .pdf-footer{
-    position: fixed;
-    bottom:10mm; left:12mm; right:12mm;
-    text-align:center; font-size:8pt; color:#666;
-    border-top:1px solid #ccc; padding-top:5px;
+    position:fixed; bottom:10mm; left:12mm; right:12mm;
+    text-align:center; font-size:8pt; color:#666; border-top:1px solid #ccc; padding-top:5px;
   }
 
   @media print{
@@ -154,7 +133,8 @@
   </tr>
 </table>
 
-<div class="section-title">Dados do Cliente</div>
+<!-- (1) Dados do Cliente SEM a linha azul -->
+<div class="section-title no-border">Dados do Cliente</div>
 <div class="info-box-simple">
   <div><strong>Razão Social:</strong> {{ cliente.razao_social }}</div>
   <div><strong>CNPJ:</strong> {{ cliente.cnpj }}</div>
@@ -169,6 +149,7 @@
 
 <div class="section-title">Itens do Orçamento</div>
 
+<!-- (2) Tabela de itens transparente -->
 <table class="items-table">
   <thead>
     <tr>
@@ -195,7 +176,7 @@
   </tbody>
 </table>
 
-<!-- RESUMO VERTICAL (cartão pequeno no canto direito) -->
+<!-- (3) Totais — cartão pequeno no canto direito -->
 <div class="summary-wrap">
   <table class="summary">
     <tr>
