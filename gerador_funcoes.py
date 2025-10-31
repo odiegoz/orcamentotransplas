@@ -1,4 +1,4 @@
-# gerador_funcoes.py — tenta WeasyPrint; se faltar, faz fallback para xhtml2pdf
+# gerador_funcoes.py — WeasyPrint com fallback robusto para xhtml2pdf
 import os
 import io
 import re
@@ -7,21 +7,24 @@ import traceback
 import streamlit as st
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-# Tenta importar WeasyPrint (recomendado)
+# --- Tenta importar WeasyPrint (recomendado) ---
 WEASY_AVAILABLE = True
 try:
     from weasyprint import HTML, CSS
 except Exception:
     WEASY_AVAILABLE = False
+    HTML = CSS = None
 
-# Fallback para xhtml2pdf se WeasyPrint não estiver disponível
-if not WEASY_AVAILABLE:
-    try:
-        from xhtml2pdf import pisa
-    except Exception:
-        pisa = None
+# --- Tenta importar xhtml2pdf para fallback, SEMPRE define 'pisa' ---
+pisa = None
+try:
+    from xhtml2pdf import pisa as _pisa
+    pisa = _pisa
+except Exception:
+    # se não existir, pisa fica None (avisamos no momento do fallback)
+    pass
 
-# --- Sanitizações (mantidas) ---
+# --- Sanitizações (opcional, ajuda a evitar atributos bloqueadores) ---
 _ATTR_DIM_RE = re.compile(
     r'\s*(?:height|width)\s*=\s*"(?:[^"]*)"|\s*(?:height|width)\s*=\s*\'(?:[^\']*)\'',
     flags=re.IGNORECASE
@@ -59,7 +62,7 @@ def _remove_table_styles_completely(html: str) -> str:
 def _get_logo_base64(script_dir: str):
     logo_path = os.path.join(script_dir, "logo_isoforma.jpg")
     if not os.path.exists(logo_path):
-        # Sem drama: você pode injetar via dados['empresa']['logo_base64']
+        # tudo bem se a logo vier via dados['empresa']['logo_base64']
         return None
     try:
         with open(logo_path, "rb") as f:
@@ -71,19 +74,23 @@ def _get_logo_base64(script_dir: str):
 # --- Gerar PDF ---
 def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
     """
-    Se WeasyPrint estiver instalado: usa WeasyPrint (suporta bem transparência e @page background).
-    Caso contrário: faz fallback para xhtml2pdf/pisa (funciona, mas pode não respeitar transparência).
+    Preferência: WeasyPrint (suporta PNG transparente e @page background).
+    Fallback: xhtml2pdf (funciona, mas transparência pode não ficar perfeita).
+    Retorna bytes do PDF ou None.
     """
     try:
         script_dir = os.path.dirname(os.path.realpath(__file__))
 
         # Injeta logo se não veio nos dados
-        if 'empresa' in dados and not dados['empresa'].get('logo_base64'):
-            logo_b64 = _get_logo_base64(script_dir)
-            if logo_b64:
-                dados['empresa']['logo_base64'] = logo_b64
+        try:
+            if 'empresa' in dados and not dados['empresa'].get('logo_base64'):
+                logo_b64 = _get_logo_base64(script_dir)
+                if logo_b64:
+                    dados['empresa']['logo_base64'] = logo_b64
+        except Exception:
+            traceback.print_exc()
 
-        # Carrega template
+        # Carrega template Jinja
         env = Environment(loader=FileSystemLoader(script_dir), autoescape=False)
         try:
             template_rel_path = os.path.basename(template_path)
@@ -100,23 +107,23 @@ def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
 
         html_final = _sanitize_table_dimensions(html_renderizado)
 
-        # Caminho A: WeasyPrint disponível
-        if WEASY_AVAILABLE:
+        # Caminho A: WeasyPrint
+        if WEASY_AVAILABLE and HTML and CSS:
             try:
                 pdf_bytes = HTML(string=html_final, base_url=script_dir).write_pdf(
                     stylesheets=[CSS(string='@page { size: A4; margin: 12mm; }')]
                 )
                 return pdf_bytes
             except Exception as e:
-                st.warning(f"WeasyPrint falhou: {e}. Tentando fallback para xhtml2pdf...")
+                st.warning(f"WeasyPrint falhou: {e}. Farei fallback para xhtml2pdf.")
                 traceback.print_exc()
 
-        # Caminho B: Fallback xhtml2pdf
+        # Caminho B: xhtml2pdf fallback
         if pisa is None:
-            st.error("xhtml2pdf não disponível e WeasyPrint ausente/falhou. Instale WeasyPrint (recomendado).")
+            st.error("Nem WeasyPrint funcionou, nem xhtml2pdf está disponível. "
+                     "Instale WeasyPrint (recomendado) ou xhtml2pdf.")
             return None
 
-        # Primeira tentativa com xhtml2pdf
         try:
             buf = io.BytesIO()
             pisa_status = pisa.CreatePDF(src=html_final, dest=buf)
@@ -124,7 +131,6 @@ def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
                 raise Exception(f"xhtml2pdf retornou erro: {pisa_status.err}")
             return buf.getvalue()
         except Exception:
-            # Fallback sem estilos bloqueadores
             html_fallback = _remove_table_styles_completely(html_renderizado)
             buf2 = io.BytesIO()
             pisa_status2 = pisa.CreatePDF(src=html_fallback, dest=buf2)
