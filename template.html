@@ -6,7 +6,7 @@
 <style>
   /* Paleta fixa (xhtml2pdf não aceita CSS variables)
      azul pastel:      #5aa6d1
-     azul escuro:      #2b5f86   (um pouco mais escuro p/ P&B)
+     azul escuro:      #2b5f86
      azul rótulos:     #2f4f6a
      texto escuro:     #1f3b5b
      cabeçalho tabela: #d7ebf9
@@ -38,33 +38,25 @@
   /* Cabeçalho */
   .company-info{ display:block; width:100%; }
   .company-info::after{ content:""; display:table; clear:both; }
-  .header-logo-block{ float:left; width:80px; }
-  .header-info-block{ float:left; padding-left:10px; width:85%; }
 
-  .company-info h1{ font-size:15pt; margin:0; color:#1f3b5b; } /* +1pt nos títulos principais */
+  .company-info h1{ font-size:15pt; margin:0 0 2px 0; color:#1f3b5b; line-height:1.1; }
+  .company-info h1 img{ height:64px; width:auto; vertical-align:middle; margin-right:8px; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
-  .meta { width:100%; border-collapse:collapse; margin:10px 0 6px 0; } /* +respiro */
+  .meta { width:100%; border-collapse:collapse; margin:8px 0 6px 0; }
   .meta td { padding:2px 4px; vertical-align:top; }
   .meta td.left{ font-weight:700; font-size:11pt; color:#1f3b5b; }
   .meta td.right{ text-align:right; font-size:8.5pt; color:#444; }
 
-  /* Chip de validade */
-  .chip{
-    display:inline-block; margin:2px 0 8px 0; padding:3px 6px;
-    background:#eaf5fc; border:1px solid #cfe5f6; color:#2f4f6a;
-    border-radius:3px; font-size:8.5pt;
-  }
-
   /* Títulos de seção (CAIXA ALTA leve) */
   .section-title{
-    font-weight:700; font-size:12pt; /* +1pt */
+    font-weight:700; font-size:12pt;
     margin:12px 0 8px 0;
     border-bottom:2px solid #2b5f86;
     padding-bottom:4px;
     color:#2b5f86;
     text-transform:uppercase;
-    letter-spacing: .2px;
+    letter-spacing:.2px;
   }
 
   /* Blocos simples */
@@ -83,7 +75,7 @@
     padding:8px 6px;
     font-size:10pt;
     text-align:left;
-    border-bottom:2px solid #cfe5f6; /* mais marcada */
+    border-bottom:2px solid #cfe5f6;
   }
   .items-table thead th.text-right{ text-align:right; }
 
@@ -92,19 +84,9 @@
   .zebra-even{ background:#ffffff; }
 
   .items-table tbody td{
-    padding:8px 6px; border-bottom:1px solid #eee; vertical-align:top; font-size:8.8pt; /* -0.2pt */
+    padding:8px 6px; border-bottom:1px solid #eee; vertical-align:top; font-size:8.8pt;
   }
-  .value-cell{ text-align:right; letter-spacing:.2px; } /* leitura melhor de números */
-
-  .item-desc{ font-weight:700; margin:0 0 4px 0; color:#1f3b5b; }
-  .item-sub{ margin:0; font-size:8pt; color:#555; line-height:1.3; }
-
-  .items-table tfoot td:first-child{
-    background:#eaf5fc; color:#2f4f6a; font-weight:700;
-  }
-  .items-table tfoot td:last-child{
-    background:#eaf5fc; color:#1f3b5b; font-size:11pt; font-weight:700;
-  }
+  .value-cell{ text-align:right; letter-spacing:.2px; }
 
   /* Observações em caixa suave */
   .obs-box{
@@ -122,7 +104,7 @@
 
   @media print{
     thead{ display:table-header-group; }
-    tfoot{ display:table-footer-group; }
+    tfoot{ display:table-footer-group; } /* (não usamos tfoot, mas deixei compatível) */
     table{ page-break-inside:auto; }
     tr, td, th, img, p{ page-break-inside:avoid; break-inside:avoid; }
     .info-box-simple, .meta, .company-info{ page-break-inside:avoid; break-inside:avoid; }
@@ -134,20 +116,16 @@
 
 <div class="company-info">
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
-    <div class="header-logo-block">
-      <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" style="height:64px; width:auto;"> <!-- altura fixa -->
-    </div>
-    <div class="header-info-block">
-      <h1>{{ empresa.nome }}</h1>
-      <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
-      <p>Contato: {{ empresa.contato }}</p>
-    </div>
+    <h1>
+      <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma">
+      {{ empresa.nome }}
+    </h1>
+    <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+    <p>Contato: {{ empresa.contato }}</p>
   {% else %}
-    <div style="float:left; width:100%;">
-      <h1 style="color:#1f3b5b;">{{ empresa.nome }}</h1>
-      <p style="color:#333;">{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
-      <p style="color:#333;">Contato: {{ empresa.contato }}</p>
-    </div>
+    <h1>{{ empresa.nome }}</h1>
+    <p style="color:#333;">{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+    <p style="color:#333;">Contato: {{ empresa.contato }}</p>
   {% endif %}
 </div>
 
@@ -160,11 +138,6 @@
     </td>
   </tr>
 </table>
-
-<!-- Chip de validade -->
-<div class="chip">
-  Validade da proposta: {{ validade or '10 dias' }}
-</div>
 
 <div class="section-title">Dados do Cliente</div>
 <div class="info-box-simple">
@@ -205,12 +178,6 @@
     </tr>
     {% endfor %}
   </tbody>
-  <tfoot>
-    <tr>
-      <td style="text-align:left;">Total das Mercadorias</td>
-      <td>R$ {{ "%.2f"|format(totais.valor_mercadoria) }}</td>
-    </tr>
-  </tfoot>
 </table>
 
 <!-- RESUMO EM LINHA (layout B) com destaque no Total -->
@@ -230,14 +197,6 @@
     </td>
   </tr>
 </table>
-
-<div class="section-title">Condições de Pagamento e Entrega</div>
-<div class="info-box-simple">
-  <div><strong>Cond. Pagto:</strong> {{ pagamento.condicao }}</div>
-  <div><strong>Data de Entrega:</strong> {{ pagamento.data_entrega }}</div>
-  <div><strong>Qtde de Parcelas:</strong> {{ pagamento.qtde_parcelas }}</div>
-  <div><strong>Valor da Parcela:</strong> R$ {{ "%.2f"|format(pagamento.valor_parcela) }}</div>
-</div>
 
 <div class="section-title">Transportadora e Observações</div>
 <div class="info-box-simple">
