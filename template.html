@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <title>Orçamento</title>
 <style>
-  /* Paleta fixa */
-  /* azul escuro: #2b5f86 | rótulos: #2f4f6a | texto: #1f3b5b | borda suave: #cfe5f6 | caixa suave: #eaf5fc */
+  /* Paleta base (fixa p/ xhtml2pdf) */
+  /* azul escuro: #2b5f86 | rótulos: #2f4f6a | texto: #1f3b5b | borda: #cfe5f6 | caixa: #eaf5fc */
 
-  /* Marca d’água em todas as páginas (PNG transparente recomendado) */
+  /* Marca d’água em todas as páginas */
   @page{
     size:A4 portrait;
     margin:12mm;
@@ -41,43 +41,43 @@
     border-bottom:2px solid #2b5f86; padding-bottom:4px; color:#2b5f86;
     text-transform:uppercase; letter-spacing:.2px;
   }
-  /* (1) Remover linha azul SOMENTE no bloco “Dados do Cliente” */
-  .section-title.no-border{ border-bottom:none; margin-bottom:4px; }
 
-  /* Blocos simples */
+  /* Blocos simples (SEM linhas entre campos) */
   .info-box-simple div{ padding:3px 0; font-size:8.5pt; line-height:1.3; }
   .info-box-simple strong{
     width:130px; display:inline-block; white-space:nowrap; vertical-align:top;
     font-weight:700; color:#1f3b5b;
   }
 
-  /* (2) Tabela de itens — TRANSPARENTE para a watermark aparecer */
+  /* Tabela de itens — cabeçalho com fundo, corpo transparente */
   .items-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
   .items-table thead th{
-    background:transparent; /* sem fundo */
+    background:#eaf5fc;   /* fundo APENAS no título */
     color:#1f3b5b;
     padding:6px 6px; font-size:10pt; text-align:left;
-    border-bottom:2px solid #cfe5f6; /* só linha inferior */
+    border-bottom:2px solid #cfe5f6;
   }
   .items-table thead th.text-right{ text-align:right; }
   .items-table tbody td{
     padding:6px 6px;
     border-bottom:1px solid #e6eaf0; /* linhas finas */
     vertical-align:top; font-size:8.8pt;
-    background:transparent;           /* sem preenchimento */
+    background:transparent;          /* SEM fundo */
   }
   .item-desc{ font-weight:700; margin:0 0 4px 0; color:#1f3b5b; }
   .item-sub{ margin:0; font-size:8pt; color:#555; line-height:1.3; }
   .value-cell{ text-align:right; letter-spacing:.2px; }
 
-  /* (3) Totais — cartão pequeno à direita */
-  .summary-wrap{ width:100%; margin-top:10px; text-align:right; }
+  /* Totais — cartão pequeno à direita (via container em 2 colunas) */
+  .totals-container{ width:100%; border-collapse:collapse; margin-top:10px; }
+  .totals-container td{ vertical-align:top; }
+  .totals-left{ width:60%; }      /* ocupa espaço vazio à esquerda */
+  .totals-right{ width:40%; }     /* coluna do cartão */
   .summary{
-    display:inline-table;   /* vira um card alinhado à direita */
-    width:32%;             /* menor; ajuste 28–40% se quiser */
+    width:100%;                   /* ocupa só a célula da direita */
     border-collapse:collapse;
     font-size:9pt;
-    background:#f9fbfe;    /* leve caixa; troque para transparent se quiser ver total sobre a watermark */
+    background:#f9fbfe;
     border:1px solid #cfe5f6;
     text-align:left;
   }
@@ -133,8 +133,8 @@
   </tr>
 </table>
 
-<!-- (1) Dados do Cliente SEM a linha azul -->
-<div class="section-title no-border">Dados do Cliente</div>
+<!-- Dados do Cliente: com linha azul no título -->
+<div class="section-title">Dados do Cliente</div>
 <div class="info-box-simple">
   <div><strong>Razão Social:</strong> {{ cliente.razao_social }}</div>
   <div><strong>CNPJ:</strong> {{ cliente.cnpj }}</div>
@@ -149,7 +149,7 @@
 
 <div class="section-title">Itens do Orçamento</div>
 
-<!-- (2) Tabela de itens transparente -->
+<!-- Tabela de itens: cabeçalho com fundo, corpo transparente -->
 <table class="items-table">
   <thead>
     <tr>
@@ -176,27 +176,32 @@
   </tbody>
 </table>
 
-<!-- (3) Totais — cartão pequeno no canto direito -->
-<div class="summary-wrap">
-  <table class="summary">
-    <tr>
-      <td class="label">Base Cálculo ICMS:</td>
-      <td class="text-right">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td>
-    </tr>
-    <tr>
-      <td class="label">ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td>
-      <td class="text-right">(informativo)</td>
-    </tr>
-    <tr>
-      <td class="label">Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td>
-      <td class="text-right">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td>
-    </tr>
-    <tr class="total-row">
-      <td><strong>Total NF:</strong></td>
-      <td class="text-right"><strong>R$ {{ "%.2f"|format(totais.total_nf) }}</strong></td>
-    </tr>
-  </table>
-</div>
+<!-- Totais: cartão menor à direita, sem ocupar largura toda -->
+<table class="totals-container">
+  <tr>
+    <td class="totals-left"></td>
+    <td class="totals-right">
+      <table class="summary">
+        <tr>
+          <td class="label">Base Cálculo ICMS:</td>
+          <td class="text-right">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td>
+        </tr>
+        <tr>
+          <td class="label">ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td>
+          <td class="text-right">(informativo)</td>
+        </tr>
+        <tr>
+          <td class="label">Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td>
+          <td class="text-right">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td>
+        </tr>
+        <tr class="total-row">
+          <td><strong>Total NF:</strong></td>
+          <td class="text-right"><strong>R$ {{ "%.2f"|format(totais.total_nf) }}</strong></td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
 
 <div class="section-title">Transportadora e Observações</div>
 <div class="info-box-simple">
