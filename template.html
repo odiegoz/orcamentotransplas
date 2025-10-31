@@ -36,11 +36,9 @@
   *,*:before,*:after{ box-sizing:inherit; }
 
   /* Cabeçalho */
-  .company-info{ display:block; width:100%; }
-  .company-info::after{ content:""; display:table; clear:both; }
-
+  .company-info{ display:block; width:100%; text-align:left; }
+  .logo-top{ height:48px; width:auto; display:block; margin:0 0 6px 0; } /* logo acima do nome */
   .company-info h1{ font-size:15pt; margin:0 0 2px 0; color:#1f3b5b; line-height:1.1; }
-  .company-info h1 img{ height: 48px; width:auto; vertical-align:middle; margin-right:8px; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
   .meta { width:100%; border-collapse:collapse; margin:8px 0 6px 0; }
@@ -88,10 +86,29 @@
   }
   .value-cell{ text-align:right; letter-spacing:.2px; }
 
+  /* Tabela de Totais (vertical à direita) */
+  .summary-wrapper{ width:100%; margin-top:10px; }
+  .summary{
+    width:50%;
+    float:right;
+    border-collapse:collapse;
+    font-size:9pt;
+    background:#f9fbfe;
+    border:1px solid #cfe5f6;
+  }
+  .summary td{ padding:6px 8px; }
+  .summary .label{ color:#2f4f6a; }
+  .summary .text-right{ text-align:right; font-weight:700; color:#1f3b5b; }
+  .summary .total-row td{
+    font-size:11pt; font-weight:700;
+    background:#eaf5fc; border-top:1px solid #cfe5f6;
+    color:#1f3b5b;
+  }
+
   /* Observações em caixa suave */
   .obs-box{
     background:#f7fbff; border:1px solid #e4effa; padding:6px 8px; border-radius:3px;
-    color:#2f4f6a; margin-top:6px;
+    color:#2f4f6a; margin-top:6px; clear:both;
   }
 
   /* Rodapé */
@@ -104,7 +121,7 @@
 
   @media print{
     thead{ display:table-header-group; }
-    tfoot{ display:table-footer-group; } /* (não usamos tfoot, mas deixei compatível) */
+    tfoot{ display:table-footer-group; }
     table{ page-break-inside:auto; }
     tr, td, th, img, p{ page-break-inside:avoid; break-inside:avoid; }
     .info-box-simple, .meta, .company-info{ page-break-inside:avoid; break-inside:avoid; }
@@ -116,10 +133,8 @@
 
 <div class="company-info">
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
-    <h1>
-      <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma">
-      {{ empresa.nome }}
-    </h1>
+    <img class="logo-top" src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma">
+    <h1>{{ empresa.nome }}</h1>
     <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
     <p>Contato: {{ empresa.contato }}</p>
   {% else %}
@@ -157,7 +172,7 @@
 <table class="items-table">
   <thead>
     <tr>
-      <th style="width:78%;">Descrição do Produto</th>
+      <th style="width:78%;">Descrição dos Produtos</th>
       <th class="text-right" style="width:22%;">Total s/ IPI</th>
     </tr>
   </thead>
@@ -180,23 +195,27 @@
   </tbody>
 </table>
 
-<!-- RESUMO EM LINHA (layout B) com destaque no Total -->
-<table style="width:100%; margin-top:8px; font-size:9pt; border-collapse:collapse; border-top:1px solid #d0e6f5; border-bottom:1px solid #d0e6f5;">
-  <tr>
-    <td style="padding:4px 6px; white-space:nowrap; color:#2f4f6a; border-right:1px solid #e6f1fa;">
-      <strong>Base Cálculo ICMS:</strong> R$ {{ "%.2f"|format(totais.base_calculo_icms) }}
-    </td>
-    <td style="padding:4px 6px; white-space:nowrap; color:#2f4f6a; border-right:1px solid #e6f1fa;">
-      <strong>ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</strong> (informativo)
-    </td>
-    <td style="padding:4px 6px; white-space:nowrap; color:#2f4f6a; border-right:1px solid #e6f1fa;">
-      <strong>Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</strong> R$ {{ "%.2f"|format(totais.valor_ipi) }}
-    </td>
-    <td style="padding:6px 8px; white-space:nowrap; text-align:right; background:#eaf5fc; color:#1f3b5b; font-weight:bold; font-size:10.5pt;">
-      <strong>Total NF:</strong> R$ {{ "%.2f"|format(totais.total_nf) }}
-    </td>
-  </tr>
-</table>
+<!-- RESUMO VERTICAL (direita) -->
+<div class="summary-wrapper">
+  <table class="summary">
+    <tr>
+      <td class="label">Base Cálculo ICMS:</td>
+      <td class="text-right">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td>
+    </tr>
+    <tr>
+      <td class="label">ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td>
+      <td class="text-right">(informativo)</td>
+    </tr>
+    <tr>
+      <td class="label">Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td>
+      <td class="text-right">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td>
+    </tr>
+    <tr class="total-row">
+      <td><strong>Total NF:</strong></td>
+      <td class="text-right"><strong>R$ {{ "%.2f"|format(totais.total_nf) }}</strong></td>
+    </tr>
+  </table>
+</div>
 
 <div class="section-title">Transportadora e Observações</div>
 <div class="info-box-simple">
