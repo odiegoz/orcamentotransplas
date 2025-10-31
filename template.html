@@ -4,17 +4,16 @@
 <meta charset="utf-8">
 <title>Orçamento</title>
 <style>
+  /* Paleta fixa (sem CSS variables para xhtml2pdf) */
+  /* azul pastel principal: #5aa6d1
+     azul escuro títulos:  #2f6f97
+     texto escuro:         #1f3b5b
+     cabeçalho tabela:     #d7ebf9
+     borda suave:          #cfe5f6
+     caixas suaves:        #eaf5fc
+  */
 
-  /* --- PALETA AZUL PASTEL --- */
-  :root{
-    --azul-primario: #5aa6d1;   /* pastel principal */
-    --azul-escuro:  #2f6f97;    /* títulos */
-    --azul-header:  #d7ebf9;    /* cabeçalho tabela */
-    --azul-claro:   #eaf5fc;    /* caixas suaves */
-    --texto-escuro: #1f3b5b;
-  }
-
-  /* --- MARCA D’ÁGUA EM TODAS AS PÁGINAS (xhtml2pdf) --- */
+  /* Marca d’água em todas as páginas */
   @page {
     size: A4 portrait;
     margin: 12mm;
@@ -23,7 +22,7 @@
     background-position: center center;
   }
 
-  /* Preview em tela */
+  /* Preview em tela (não afeta PDF, mas ajuda) */
   html, body {
     background-image: url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
     background-repeat: no-repeat;
@@ -34,43 +33,51 @@
   html,body{ font-family: Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box; }
   *,*:before,*:after{ box-sizing:inherit; }
 
-  /* --- CABEÇALHO --- */
+  /* Cabeçalho */
   .company-info{ display:block; width:100%; }
   .company-info::after{ content:""; display:table; clear:both; }
   .header-logo-block{ float:left; width:80px; }
   .header-info-block{ float:left; padding-left:10px; width:85%; }
 
-  .company-info h1{ font-size:14pt; margin:0; color: var(--texto-escuro); }
+  .company-info h1{ font-size:14pt; margin:0; color:#1f3b5b; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
-  .meta td.left{ font-weight:700; font-size:11pt; color: var(--texto-escuro); }
+  .meta { width:100%; border-collapse:collapse; margin:10px 0; }
+  .meta td { padding:2px 4px; vertical-align:top; }
+  .meta td.left{ font-weight:700; font-size:11pt; color:#1f3b5b; }
   .meta td.right{ text-align:right; font-size:8.5pt; color:#444; }
 
-  /* --- TÍTULOS DE SEÇÃO --- */
+  /* Títulos de seção */
   .section-title{
     font-weight:700; font-size:11pt;
     margin:15px 0 8px 0;
-    border-bottom:2px solid var(--azul-escuro);
+    border-bottom:2px solid #2f6f97;
     padding-bottom:4px;
-    color: var(--azul-escuro);
+    color:#2f6f97;
   }
 
+  /* Blocos simples */
+  .info-box-simple div{ padding-bottom:3px; font-size:8.5pt; line-height:1.3; }
   .info-box-simple strong{
-    width:130px; display:inline-block; font-weight:700;
-    color: var(--texto-escuro);
+    width:130px; display:inline-block; white-space:nowrap; vertical-align:top;
+    font-weight:700; color:#1f3b5b;
   }
 
-  /* --- TABELA DE ITENS --- */
+  /* Tabela de itens */
   .items-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
   .items-table thead th{
-    background: var(--azul-header);
-    color: var(--texto-escuro);
+    background:#d7ebf9;
+    color:#1f3b5b;
     padding:8px 6px;
+    font-size:10pt;
+    text-align:left;
     border-bottom:1px solid #cfe5f6;
   }
-  .items-table tbody td{ padding:8px 6px; border-bottom:1px solid #eee; }
-  .item-desc{ font-weight:700; color: var(--texto-escuro); }
-  .item-sub{ font-size:8pt; color:#555; }
+  .items-table thead th.text-right{ text-align:right; }
+  .items-table tbody td{ padding:8px 6px; border-bottom:1px solid #eee; vertical-align:top; font-size:9pt; }
+  .items-table tbody tr, .items-table tbody td { page-break-inside:avoid; break-inside:avoid; }
+  .item-desc{ font-weight:700; margin:0 0 4px 0; color:#1f3b5b; }
+  .item-sub{ margin:0; font-size:8pt; color:#555; line-height:1.3; }
 
   .items-table tfoot td{
     padding:8px 6px; font-weight:700;
@@ -78,18 +85,20 @@
     text-align:right; font-size:10pt;
   }
 
-  /* --- RESUMO HORIZONTAL (NOVO) --- */
+  /* Resumo horizontal (4 cards) */
   .summary-wrapper{ width:100%; margin-top:12px; }
   .totals-row{ width:100%; border-collapse:collapse; }
   .totals-row td{
-    width:25%; padding:8px;
-    background: var(--azul-claro);
+    width:25%;
+    padding:8px;
+    background:#eaf5fc;
     border:1px solid #cfe5f6;
+    vertical-align:top;
   }
   .total-box-label{ font-size:8.5pt; color:#355c7a; }
-  .total-box-value{ font-size:11pt; font-weight:700; text-align:right; color: var(--texto-escuro); }
+  .total-box-value{ font-size:11pt; font-weight:700; text-align:right; color:#1f3b5b; }
 
-  /* --- RODAPÉ --- */
+  /* Rodapé */
   .pdf-footer{
     position: fixed;
     bottom:10mm; left:12mm; right:12mm;
@@ -100,29 +109,41 @@
   @media print{
     thead{ display:table-header-group; }
     tfoot{ display:table-footer-group; }
+    table{ page-break-inside:auto; }
+    tr, td, th, img, p{ page-break-inside:avoid; break-inside:avoid; }
+    .summary-wrapper, .info-box-simple, .meta, .company-info{ page-break-inside:avoid; break-inside:avoid; }
+    .section-title{ page-break-after:avoid; }
   }
-
 </style>
 </head>
 <body>
 
 <div class="company-info">
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
-  <div class="header-logo-block">
-    <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" width="80">
-  </div>
-  <div class="header-info-block">
-    <h1>{{ empresa.nome }}</h1>
-    <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
-    <p>Contato: {{ empresa.contato }}</p>
-  </div>
+    <div class="header-logo-block">
+      <img src="data:image/jpeg;base64,{{ empresa.logo_base64 }}" alt="Logo Isoforma" width="80" style="width: 80px; height: auto;">
+    </div>
+    <div class="header-info-block">
+      <h1>{{ empresa.nome }}</h1>
+      <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+      <p>Contato: {{ empresa.contato }}</p>
+    </div>
+  {% else %}
+    <div style="float:left; width:100%;">
+      <h1 style="color:#1f3b5b;">{{ empresa.nome }}</h1>
+      <p style="color:#333;">{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+      <p style="color:#333;">Contato: {{ empresa.contato }}</p>
+    </div>
   {% endif %}
 </div>
 
 <table class="meta">
   <tr>
     <td class="left">Orçamento N°: {{ orcamento_numero }}</td>
-    <td class="right"><strong>Data:</strong> {{ data_emissao }}<br><strong>Vendedor:</strong> {{ vendedor }}</td>
+    <td class="right">
+      <div><strong>Data:</strong> {{ data_emissao }}</div>
+      <div><strong>Vendedor:</strong> {{ vendedor }}</div>
+    </td>
   </tr>
 </table>
 
@@ -142,42 +163,59 @@
 <div class="section-title">Itens do Orçamento</div>
 
 <table class="items-table">
-<thead>
-<tr>
-  <th style="width:78%;">Descrição do Produto</th>
-  <th class="text-right" style="width:22%;">Total s/ IPI</th>
-</tr>
-</thead>
-<tbody>
-{% for item in itens %}
-<tr>
-  <td>
-    <div class="item-desc">{{ item.descricao }}</div>
-    <div class="item-sub"><strong>Medida:</strong> {{ item.medida }} | <strong>Cor:</strong> {{ item.cor_codigo }} | <strong>Acab:</strong> {{ item.acabamento }} | <strong>Filme:</strong> {{ item.filme }}</div>
-    <div class="item-sub">{{ "%.2f"|format(item.quantidade_kg) }} KG × R$ {{ "%.2f"|format(item.valor_kg) }} (IPI: {{ "%.2f"|format(item.ipi_item) }}%)</div>
-  </td>
-  <td style="text-align:right;">R$ {{ "%.2f"|format(item.quantidade_kg * item.valor_kg) }}</td>
-</tr>
-{% endfor %}
-</tbody>
-<tfoot>
-<tr>
-  <td>Total das Mercadorias</td>
-  <td style="text-align:right;">R$ {{ "%.2f"|format(totais.valor_mercadoria) }}</td>
-</tr>
-</tfoot>
+  <thead>
+    <tr>
+      <th style="width:78%;">Descrição do Produto</th>
+      <th class="text-right" style="width:22%;">Total s/ IPI</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in itens %}
+    <tr>
+      <td>
+        <div class="item-desc">{{ item.descricao }}</div>
+        <div class="item-sub">
+          <strong>Medida:</strong> {{ item.medida }} |
+          <strong>Cor:</strong> {{ item.cor_codigo }} |
+          <strong>Acab:</strong> {{ item.acabamento }} |
+          <strong>Filme:</strong> {{ item.filme }}
+        </div>
+        <div class="item-sub">{{ "%.2f"|format(item.quantidade_kg) }} KG × R$ {{ "%.2f"|format(item.valor_kg) }} (IPI: {{ "%.2f"|format(item.ipi_item) }}%)</div>
+      </td>
+      <td style="text-align:right;">R$ {{ "%.2f"|format(item.quantidade_kg * item.valor_kg) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td style="text-align:left;">Total das Mercadorias</td>
+      <td style="text-align:right;">R$ {{ "%.2f"|format(totais.valor_mercadoria) }}</td>
+    </tr>
+  </tfoot>
 </table>
 
-<!-- RESUMO HORIZONTAL -->
+<!-- Resumo horizontal -->
 <div class="summary-wrapper">
-<table class="totals-row">
-<tr>
-  <td><div class="total-box-label">Base Cálculo ICMS:</div><div class="total-box-value">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</div></td>
-  <td><div class="total-box-label">ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</div><div class="total-box-value">(informativo)</div></td>
-  <td><div class="total-box-label">Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</div><div class="total-box-value">R$ {{ "%.2f"|format(totais.valor_ipi) }}</div></td>
-  <td><div class="total-box-label">Total NF:</div><div class="total-box-value">R$ {{ "%.2f"|format(totais.total_nf) }}</div></td>
-</tr>
-</table>
+  <table class="totals-row">
+    <tr>
+      <td>
+        <div class="total-box-label">Base Cálculo ICMS:</div>
+        <div class="total-box-value">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</div>
+      </td>
+      <td>
+        <div class="total-box-label">ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</div>
+        <div class="total-box-value">(informativo)</div>
+      </td>
+      <td>
+        <div class="total-box-label">Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</div>
+        <div class="total-box-value">R$ {{ "%.2f"|format(totais.valor_ipi) }}</div>
+      </td>
+      <td>
+        <div class="total-box-label">Total NF:</div>
+        <div class="total-box-value">R$ {{ "%.2f"|format(totais.total_nf) }}</div>
+      </td>
+    </tr>
+  </table>
 </div>
 
 <div class="section-title">Condições de Pagamento e Entrega</div>
@@ -196,7 +234,9 @@
   <div><strong>Obs:</strong> {{ observacoes }}</div>
 </div>
 
-<div class="pdf-footer">{{ empresa.nome }} — Página <span class="page">1</span></div>
+<div class="pdf-footer">
+  {{ empresa.nome }} — Página <span class="page">1</span>
+</div>
 
 </body>
 </html>
