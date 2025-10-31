@@ -72,16 +72,15 @@
   .item-sub{ margin:0; font-size:8pt; color:#555; line-height:1.3; }
   .value-cell{ text-align:right; letter-spacing:.2px; }
 /* Força transparência no CORPO da tabela de itens (não mexe no cabeçalho) */
-.items-table { background: transparent !important; }
 
+/* Força transparência real nos itens (xhtml2pdf exige nos 3 níveis) */
+.items-table,
 .items-table tbody,
-.items-table tbody tr,
-.items-table tbody td,
-.items-table tbody td *,
-.items-table tbody tr * {
-  background: transparent !important;
-  background-color: transparent !important;
-}
+.items-table tr,
+.items-table td {
+    background: none !important;
+    background-color: transparent !important;
+  }
 
 /* Se ainda aparecer “placa” branca, o xhtml2pdf pode pintar a linha inteira:
    isso cancela qualquer herança residual */
