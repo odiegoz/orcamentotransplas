@@ -1,4 +1,4 @@
-# gerador_funcoes.py — WeasyPrint com fallback robusto para xhtml2pdf
+# gerador_funcoes.py — WeasyPrint (com verificação de pydyf) + fallback robusto xhtml2pdf
 import os
 import io
 import re
@@ -7,24 +7,35 @@ import traceback
 import streamlit as st
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-# --- Tenta importar WeasyPrint (recomendado) ---
+# --- Verifica WeasyPrint e pydyf compatível ---
 WEASY_AVAILABLE = True
+WEASY_REASON = ""
 try:
     from weasyprint import HTML, CSS
-except Exception:
+    try:
+        import pydyf
+        # Checa versão mínima compatível
+        PYDYF_VER = tuple(int(x) for x in pydyf.__version__.split('.')[:2])
+        if PYDYF_VER < (0, 11):
+            WEASY_AVAILABLE = False
+            WEASY_REASON = f"pydyf {pydyf.__version__} < 0.11 (incompatível com WeasyPrint 61.x)"
+    except Exception as e:
+        WEASY_AVAILABLE = False
+        WEASY_REASON = f"Falha ao verificar pydyf: {e}"
+except Exception as e:
     WEASY_AVAILABLE = False
-    HTML = CSS = None
+    WEASY_REASON = f"WeasyPrint indisponível: {e}"
 
-# --- Tenta importar xhtml2pdf para fallback, SEMPRE define 'pisa' ---
+# --- Sempre tenta carregar xhtml2pdf para fallback ---
 pisa = None
 try:
     from xhtml2pdf import pisa as _pisa
     pisa = _pisa
 except Exception:
-    # se não existir, pisa fica None (avisamos no momento do fallback)
+    # deixa pisa=None; vamos avisar no momento do uso
     pass
 
-# --- Sanitizações (opcional, ajuda a evitar atributos bloqueadores) ---
+# --- Sanitizações auxiliares (mantidas) ---
 _ATTR_DIM_RE = re.compile(
     r'\s*(?:height|width)\s*=\s*"(?:[^"]*)"|\s*(?:height|width)\s*=\s*\'(?:[^\']*)\'',
     flags=re.IGNORECASE
@@ -62,7 +73,6 @@ def _remove_table_styles_completely(html: str) -> str:
 def _get_logo_base64(script_dir: str):
     logo_path = os.path.join(script_dir, "logo_isoforma.jpg")
     if not os.path.exists(logo_path):
-        # tudo bem se a logo vier via dados['empresa']['logo_base64']
         return None
     try:
         with open(logo_path, "rb") as f:
@@ -74,8 +84,8 @@ def _get_logo_base64(script_dir: str):
 # --- Gerar PDF ---
 def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
     """
-    Preferência: WeasyPrint (suporta PNG transparente e @page background).
-    Fallback: xhtml2pdf (funciona, mas transparência pode não ficar perfeita).
+    Preferência: WeasyPrint (se pydyf >= 0.11).
+    Fallback: xhtml2pdf (se WeasyPrint ausente/incompatível ou falhar).
     Retorna bytes do PDF ou None.
     """
     try:
@@ -107,8 +117,8 @@ def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
 
         html_final = _sanitize_table_dimensions(html_renderizado)
 
-        # Caminho A: WeasyPrint
-        if WEASY_AVAILABLE and HTML and CSS:
+        # Caminho A: WeasyPrint só se pydyf compatível
+        if WEASY_AVAILABLE:
             try:
                 pdf_bytes = HTML(string=html_final, base_url=script_dir).write_pdf(
                     stylesheets=[CSS(string='@page { size: A4; margin: 12mm; }')]
@@ -117,11 +127,14 @@ def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
             except Exception as e:
                 st.warning(f"WeasyPrint falhou: {e}. Farei fallback para xhtml2pdf.")
                 traceback.print_exc()
+        else:
+            if WEASY_REASON:
+                st.info(f"Usando xhtml2pdf porque WeasyPrint está indisponível/incompatível: {WEASY_REASON}")
 
         # Caminho B: xhtml2pdf fallback
         if pisa is None:
-            st.error("Nem WeasyPrint funcionou, nem xhtml2pdf está disponível. "
-                     "Instale WeasyPrint (recomendado) ou xhtml2pdf.")
+            st.error("Nem WeasyPrint (compatível) funcionou, nem xhtml2pdf está disponível. "
+                     "Garanta pydyf>=0.11 com weasyprint==61.2 ou instale xhtml2pdf.")
             return None
 
         try:
