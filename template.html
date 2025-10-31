@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <title>Orçamento</title>
 <style>
-  /* Paleta fixa (sem CSS variables para xhtml2pdf) */
-  /* azul pastel principal: #5aa6d1
-     azul escuro títulos:  #2f6f97
-     texto escuro:         #1f3b5b
-     cabeçalho tabela:     #d7ebf9
-     borda suave:          #cfe5f6
-     caixas suaves:        #eaf5fc
+  /* Paleta fixa (xhtml2pdf não aceita CSS variables) 
+     azul pastel:      #5aa6d1
+     azul escuro:      #2f6f97
+     texto escuro:     #1f3b5b
+     cabeçalho tabela: #d7ebf9
+     borda suave:      #cfe5f6
+     caixa suave:      #eaf5fc
   */
 
   /* Marca d’água em todas as páginas */
@@ -22,7 +22,7 @@
     background-position: center center;
   }
 
-  /* Preview em tela (não afeta PDF, mas ajuda) */
+  /* Preview em tela (não afeta o PDF) */
   html, body {
     background-image: url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
     background-repeat: no-repeat;
@@ -85,20 +85,6 @@
     text-align:right; font-size:10pt;
   }
 
-  /* Resumo horizontal (4 cards) */
-  .summary-wrapper{ width:100%; margin-top:12px; }
-  .totals-row{ width:100%; border-collapse:collapse; }
-  .totals-row td{
-    width:auto;
-    padding:6px 8px;
-    background:#eaf5fc;
-    border:1px solid #cfe5f6;
-    vertical-align:top;
-    white-space: nowrap;
-  }
-  .total-box-label{ font-size:8.5pt; color:#355c7a; }
-  .total-box-value{ font-size:11pt; font-weight:700; text-align:right; color:#1f3b5b; }
-
   /* Rodapé */
   .pdf-footer{
     position: fixed;
@@ -112,7 +98,7 @@
     tfoot{ display:table-footer-group; }
     table{ page-break-inside:auto; }
     tr, td, th, img, p{ page-break-inside:avoid; break-inside:avoid; }
-    .summary-wrapper, .info-box-simple, .meta, .company-info{ page-break-inside:avoid; break-inside:avoid; }
+    .info-box-simple, .meta, .company-info{ page-break-inside:avoid; break-inside:avoid; }
     .section-title{ page-break-after:avoid; }
   }
 </style>
@@ -195,29 +181,23 @@
   </tfoot>
 </table>
 
-<!-- Resumo horizontal -->
-<div class="summary-wrapper">
-  <table class="totals-row">
-    <tr>
-      <td>
-        <div class="total-box-label">Base Cálculo ICMS:</div>
-        <div class="total-box-value">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</div>
-      </td>
-      <td>
-        <div class="total-box-label">ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</div>
-        <div class="total-box-value">(informativo)</div>
-      </td>
-      <td>
-        <div class="total-box-label">Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</div>
-        <div class="total-box-value">R$ {{ "%.2f"|format(totais.valor_ipi) }}</div>
-      </td>
-      <td>
-        <div class="total-box-label">Total NF:</div>
-        <div class="total-box-value">R$ {{ "%.2f"|format(totais.total_nf) }}</div>
-      </td>
-    </tr>
-  </table>
-</div>
+<!-- RESUMO EM LINHA (LAYOUT B + DESTAQUE NO TOTAL) -->
+<table style="width:100%; margin-top:8px; font-size:9pt; border-collapse:collapse; border:1px solid #d0e6f5;">
+  <tr>
+    <td style="padding:6px 8px; white-space:nowrap; color:#355c7a; border-right:1px solid #d0e6f5;">
+      <strong>Base Cálculo ICMS:</strong> R$ {{ "%.2f"|format(totais.base_calculo_icms) }}
+    </td>
+    <td style="padding:6px 8px; white-space:nowrap; color:#355c7a; border-right:1px solid #d0e6f5;">
+      <strong>ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</strong> (informativo)
+    </td>
+    <td style="padding:6px 8px; white-space:nowrap; color:#355c7a; border-right:1px solid #d0e6f5;">
+      <strong>Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</strong> R$ {{ "%.2f"|format(totais.valor_ipi) }}
+    </td>
+    <td style="padding:8px 10px; white-space:nowrap; text-align:right; background:#eaf5fc; color:#1f3b5b; font-weight:bold; font-size:10.5pt;">
+      <strong>Total NF:</strong> R$ {{ "%.2f"|format(totais.total_nf) }}
+    </td>
+  </tr>
+</table>
 
 <div class="section-title">Condições de Pagamento e Entrega</div>
 <div class="info-box-simple">
