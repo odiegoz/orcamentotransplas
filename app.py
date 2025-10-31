@@ -1,27 +1,25 @@
-import streamlit as st
 import os
-from datetime import date, datetime
-from gerador_funcoes import criar_pdf
 import io
-import traceback
+import json
 import base64
+import traceback
 from pathlib import Path
+from datetime import date, datetime
 
-def to_data_uri(path: str):
-    p = Path(path)
-    if not p.exists():
-        return None
-    mime = "image/png" if p.suffix.lower()==".png" else "image/jpeg"
-    return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
-
-
-# --- [MODIFICADO] --- Importações do Google Sheets
+import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import gspread
 import pandas as pd
-import json # <--- [IMPORTANTE] Adicionar import json
 
-# --- DADOS DAS EMPRESAS (sem alteração) ---
+from gerador_funcoes import criar_pdf
+
+# ------------------------------------------------------------
+# CONFIG
+# ------------------------------------------------------------
+st.set_page_config(layout="wide", page_title="Gerador de Propostas e Orçamentos")
+st.title("📄 Gerador de Propostas e Orçamentos")
+
+# --- DADOS DAS EMPRESAS ---
 EMPRESAS = {
     "ISOFORMA": {
         'nome': "ISOFORMA PLASTICOS INDUSTRIAIS LTDA",
@@ -39,20 +37,19 @@ EMPRESAS = {
     }
 }
 
-# --- [MODIFICADO] --- Definição das colunas da planilha
+# --- COLUNAS ---
 COLUNAS_CLIENTES = [
     'id', 'razao_social', 'endereco', 'bairro', 'cidade', 'uf',
     'cep', 'cnpj', 'inscricao_estadual', 'telefone', 'contato', 'email', 'data_cadastro'
 ]
-
-# --- [NOVO] --- Definição das colunas de Produtos
 COLUNAS_PRODUTOS = [
-    'id', 'sku', 'descricao', 'filme', 'cor_codigo', 'acabamento', 
+    'id', 'sku', 'descricao', 'filme', 'cor_codigo', 'acabamento',
     'medida', 'valor_kg', 'data_cadastro'
 ]
 
-
-# --- [MODIFICADO] --- Conexão com o Google Sheets
+# ------------------------------------------------------------
+# CONEXÃO GOOGLE SHEETS
+# ------------------------------------------------------------
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
@@ -60,11 +57,36 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
+# ------------------------------------------------------------
+# HELPERS: MARCA D'ÁGUA
+# ------------------------------------------------------------
+def to_data_uri(path: Path):
+    """Converte imagem local em data URI (base64). Retorna None se não achar."""
+    if not path or not path.exists():
+        return None
+    mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+    return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
 
-# --- [MODIFICADO] --- FUNÇÕES DE BANCO DE DADOS (Google Sheets) ---
+def find_watermark_path():
+    """Tenta localizar a imagem watermark.png em caminhos comuns (local/cloud)."""
+    candidates = [
+        Path(__file__).parent / "watermark.png",
+        Path(__file__).parent / "assets" / "watermark.png",
+        Path.cwd() / "watermark.png",
+        Path.cwd() / "assets" / "watermark.png",
+        Path("/mount/src/orcamentotransplas/watermark.png"),
+        Path("/workspaces/orcamentotransplas/watermark.png"),
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return None
 
+# ------------------------------------------------------------
+# FUNÇÕES DE BANCO (GOOGLE SHEETS)
+# ------------------------------------------------------------
 @st.cache_data(ttl=15)
-def carregar_aba(aba_nome, colunas_esperadas): # <-- [MODIFICADO] Adicionado 'colunas_esperadas'
+def carregar_aba(aba_nome, colunas_esperadas):
     """Lê todos os dados de uma aba e retorna um DataFrame."""
     try:
         creds_json_text = st.secrets["gsheets"]["service_account_info"]
@@ -79,57 +101,46 @@ def carregar_aba(aba_nome, colunas_esperadas): # <-- [MODIFICADO] Adicionado 'co
         if len(dados) > 0:
             df = pd.DataFrame(dados[1:], columns=dados[0])
         else:
-            # [MODIFICADO] Usa o argumento
-            df = pd.DataFrame(columns=colunas_esperadas) 
+            df = pd.DataFrame(columns=colunas_esperadas)
 
         df.dropna(how="all", inplace=True)
         if 'id' in df.columns:
             df['id'] = df['id'].astype(str)
-        
-        # [NOVO] Garantir que colunas numéricas sejam tratadas
+
         if 'valor_kg' in df.columns:
-             df['valor_kg'] = pd.to_numeric(df['valor_kg'], errors='coerce').fillna(0.0)
+            df['valor_kg'] = pd.to_numeric(df['valor_kg'], errors='coerce').fillna(0.0)
 
         return df
 
     except gspread.exceptions.WorksheetNotFound:
         st.error(f"Aba '{aba_nome}' não encontrada na sua planilha! Verifique o nome.")
-        return pd.DataFrame(columns=colunas_esperadas) # [MODIFICADO]
+        return pd.DataFrame(columns=colunas_esperadas)
     except json.JSONDecodeError as e:
         st.error(f"Erro ao ler o JSON das credenciais nos Secrets: {e}")
-        st.error("Verifique se o JSON em 'service_account_info' está formatado corretamente e sem caracteres inválidos.")
+        st.error("Verifique se o JSON em 'service_account_info' está válido.")
         traceback.print_exc()
-        return pd.DataFrame(columns=colunas_esperadas) # [MODIFICADO]
+        return pd.DataFrame(columns=colunas_esperadas)
     except Exception as e:
         st.error(f"Erro ao carregar dados da aba '{aba_nome}': {e}")
         traceback.print_exc()
-        return pd.DataFrame(columns=colunas_esperadas) # [MODIFICADO]
-
-# --- Funções de Clientes (Modificadas para usar a nova 'carregar_aba') ---
+        return pd.DataFrame(columns=colunas_esperadas)
 
 def get_all_clients():
-    """Retorna lista de dicts de clientes."""
-    # [MODIFICADO] Passa as colunas esperadas
-    df = carregar_aba("Clientes", COLUNAS_CLIENTES) 
+    df = carregar_aba("Clientes", COLUNAS_CLIENTES)
     if df.empty:
         return []
     return df.to_dict('records')
 
 def get_client_by_id(client_id):
-    """Retorna um dict do cliente ou None."""
-    # [MODIFICADO] Passa as colunas esperadas
     df = carregar_aba("Clientes", COLUNAS_CLIENTES)
     if df.empty or 'id' not in df.columns:
         return None
-
     cliente_df = df[df['id'] == str(client_id)]
-
     if not cliente_df.empty:
         return cliente_df.to_dict('records')[0]
     return None
 
 def add_client(data_dict):
-    """Adiciona cliente no Google Sheets."""
     try:
         creds_json_text = st.secrets["gsheets"]["service_account_info"]
         creds_json = json.loads(creds_json_text)
@@ -138,38 +149,31 @@ def add_client(data_dict):
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet("Clientes")
 
-        # Checar duplicidade de CNPJ
+        # duplicidade CNPJ
         try:
             cnpj_col_index = COLUNAS_CLIENTES.index('cnpj') + 1
         except ValueError:
-            st.error("Erro crítico: Coluna 'cnpj' não encontrada. Verifique 'COLUNAS_CLIENTES'.")
+            st.error("Erro crítico: Coluna 'cnpj' não encontrada.")
             return False
-
         cnpjs_existentes = ws.col_values(cnpj_col_index)
-        if data_dict['cnpj'] and data_dict['cnpj'] in cnpjs_existentes: # [MODIFICADO] Checa se cnpj não é vazio
+        if data_dict['cnpj'] and data_dict['cnpj'] in cnpjs_existentes:
             st.sidebar.error("Cliente com este CNPJ já existe.")
             return False
 
-        # Pegar próximo ID
+        # próximo ID
         try:
             id_col_index = COLUNAS_CLIENTES.index('id') + 1
         except ValueError:
-            st.error("Erro crítico: Coluna 'id' não encontrada. Verifique 'COLUNAS_CLIENTES'.")
+            st.error("Erro crítico: Coluna 'id' não encontrada.")
             return False
-
         ids = ws.col_values(id_col_index)[1:]
         ids_num = [int(i) for i in ids if i and i.isdigit()]
         next_id = max(ids_num) + 1 if ids_num else 1
 
-        # Montar a linha na ordem correta
-        nova_linha = []
         data_dict['id'] = next_id
         data_dict['data_cadastro'] = datetime.now().strftime("%Y-%m-%d")
+        nova_linha = [data_dict.get(col, "") for col in COLUNAS_CLIENTES]
 
-        for coluna in COLUNAS_CLIENTES:
-            nova_linha.append(data_dict.get(coluna, ""))
-
-        # Adicionar a linha e limpar o cache
         ws.append_row(nova_linha)
         st.cache_data.clear()
         return True
@@ -178,78 +182,63 @@ def add_client(data_dict):
         st.error("Aba 'Clientes' não foi encontrada na planilha. Não foi possível salvar.")
         return False
     except json.JSONDecodeError as e:
-        st.error(f"Erro ao ler o JSON das credenciais nos Secrets: {e}")
-        st.error("Verifique se o JSON em 'service_account_info' está formatado corretamente.")
+        st.error(f"Erro ao ler o JSON das credenciais: {e}")
         traceback.print_exc()
         return False
     except Exception as e:
-        st.error(f"Erro ao salvar no Google Sheets:")
+        st.error("Erro ao salvar no Google Sheets:")
         st.exception(e)
         return False
 
-# --- [NOVO] --- FUNÇÕES DE PRODUTOS ---
-
 def get_all_products():
-    """Carrega todos os produtos da aba 'Produtos'."""
     df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
     if df.empty:
         return []
     return df.to_dict('records')
 
 def get_product_by_id(product_id):
-    """Busca um produto pelo ID."""
     df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
     if df.empty or 'id' not in df.columns:
         return None
-    
     produto_df = df[df['id'] == str(product_id)]
-    
     if not produto_df.empty:
         return produto_df.to_dict('records')[0]
     return None
 
 def add_product(data_dict):
-    """Adiciona um novo produto na aba 'Produtos'."""
     try:
         creds_json_text = st.secrets["gsheets"]["service_account_info"]
         creds_json = json.loads(creds_json_text)
         sa = gspread.service_account_from_dict(creds_json)
 
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
-        ws = sh.worksheet("Produtos") # <-- Aponta para a aba "Produtos"
+        ws = sh.worksheet("Produtos")
 
-        # 2. Checar duplicidade de SKU
+        # duplicidade SKU
         try:
             sku_col_index = COLUNAS_PRODUTOS.index('sku') + 1
         except ValueError:
-            st.error("Erro crítico: Coluna 'sku' não encontrada. Verifique 'COLUNAS_PRODUTOS'.")
+            st.error("Erro crítico: Coluna 'sku' não encontrada.")
             return False
-
         skus_existentes = ws.col_values(sku_col_index)
-        if data_dict['sku'] and data_dict['sku'] in skus_existentes: # <-- Checa SKU
+        if data_dict['sku'] and data_dict['sku'] in skus_existentes:
             st.sidebar.error("Produto com este SKU já existe.")
             return False
 
-        # 3. Pegar próximo ID
+        # próximo ID
         try:
             id_col_index = COLUNAS_PRODUTOS.index('id') + 1
         except ValueError:
-            st.error("Erro crítico: Coluna 'id' não encontrada. Verifique 'COLUNAS_PRODUTOS'.")
+            st.error("Erro crítico: Coluna 'id' não encontrada.")
             return False
-
         ids = ws.col_values(id_col_index)[1:]
         ids_num = [int(i) for i in ids if i and i.isdigit()]
         next_id = max(ids_num) + 1 if ids_num else 1
 
-        # 4. Montar a linha na ordem correta
-        nova_linha = []
         data_dict['id'] = next_id
         data_dict['data_cadastro'] = datetime.now().strftime("%Y-%m-%d")
+        nova_linha = [data_dict.get(col, "") for col in COLUNAS_PRODUTOS]
 
-        for coluna in COLUNAS_PRODUTOS: # <-- Usa COLUNAS_PRODUTOS
-            nova_linha.append(data_dict.get(coluna, ""))
-
-        # 5. Adicionar a linha e limpar o cache
         ws.append_row(nova_linha)
         st.cache_data.clear()
         return True
@@ -258,45 +247,39 @@ def add_product(data_dict):
         st.error("Aba 'Produtos' não foi encontrada na planilha. Não foi possível salvar.")
         return False
     except Exception as e:
-        st.error(f"Erro ao salvar Produto no Google Sheets:")
+        st.error("Erro ao salvar Produto no Google Sheets:")
         st.exception(e)
         return False
 
-# --- FIM DAS NOVAS FUNÇÕES DE BANCO DE DADOS ---
-
-
-st.set_page_config(layout="wide", page_title="Gerador de Orçamentos")
-st.title("📄 Gerador de Propostas e Orçamentos")
-
-# --- SELEÇÃO DA EMPRESA (sem alteração) ---
+# ------------------------------------------------------------
+# UI: SELEÇÃO DE EMPRESA
+# ------------------------------------------------------------
 empresa_selecionada_nome = st.selectbox(
     "**Selecione a Empresa para o Orçamento**",
     options=list(EMPRESAS.keys())
 )
 st.markdown("---")
 
-
-# --- BARRA LATERAL PARA GERENCIAR CLIENTES ---
+# ------------------------------------------------------------
+# SIDEBAR: CLIENTES
+# ------------------------------------------------------------
 st.sidebar.title("Gerenciamento")
 st.sidebar.header("Clientes")
-
 try:
-    clientes = get_all_clients() 
-
+    clientes = get_all_clients()
     cliente_map = {}
     if clientes:
         clientes_validos = [c for c in clientes if c.get('razao_social') and c.get('id')]
         cliente_map = {f"{c['razao_social']} (ID: {c['id']})": c['id'] for c in clientes_validos}
 
     opcoes_cliente = ["- Selecione um Cliente -"] + list(cliente_map.keys())
-
     cliente_selecionado_str = st.sidebar.selectbox("Carregar Cliente Existente", options=opcoes_cliente)
 
     if cliente_selecionado_str != "- Selecione um Cliente -":
         cliente_id = cliente_map[cliente_selecionado_str]
         if 'cliente_id' not in st.session_state or st.session_state.cliente_id != cliente_id:
             st.session_state.cliente_id = cliente_id
-            st.session_state.dados_cliente = get_client_by_id(cliente_id) 
+            st.session_state.dados_cliente = get_client_by_id(cliente_id)
             st.rerun()
 
     with st.sidebar.expander("➕ Adicionar Novo Cliente", expanded=False):
@@ -315,16 +298,17 @@ try:
                 if not new_cliente_data['razao_social'] or not new_cliente_data['cnpj']:
                     st.sidebar.error("Razão Social e CNPJ são obrigatórios.")
                 else:
-                    if add_client(new_cliente_data): 
+                    if add_client(new_cliente_data):
                         st.sidebar.success("Cliente salvo!")
                         st.rerun()
 except Exception as e:
     st.sidebar.error(f"Erro ao carregar clientes: {e}")
-    traceback.print_exc() 
+    traceback.print_exc()
 
-# --- [NOVO] --- BARRA LATERAL PARA GERENCIAR PRODUTOS ---
+# ------------------------------------------------------------
+# SIDEBAR: PRODUTOS
+# ------------------------------------------------------------
 st.sidebar.header("📦 Produtos")
-
 try:
     with st.sidebar.expander("➕ Adicionar Novo Produto", expanded=False):
         with st.form("new_product_form", clear_on_submit=True):
@@ -344,20 +328,19 @@ try:
                 else:
                     if add_product(new_product_data):
                         st.sidebar.success("Produto salvo!")
-                        st.rerun() # Força recarregar o selectbox de produtos
-                    # Msg de erro (SKU duplicado) já aparece na função
+                        st.rerun()
 except Exception as e:
     st.sidebar.error(f"Erro nas operações de produto: {e}")
     traceback.print_exc()
 
-
-# --- FORMULÁRIO PRINCIPAL DO ORÇAMENTO (sem alteração) ---
+# ------------------------------------------------------------
+# FORMULÁRIO PRINCIPAL
+# ------------------------------------------------------------
 dados_cliente_atual = st.session_state.get('dados_cliente', None)
 col_dados_gerais, col_itens = st.columns(2)
 
 with col_dados_gerais:
     st.subheader("Dados Gerais do Orçamento")
-
     col_num, col_vend = st.columns(2)
     with col_num:
         orcamento_numero = st.number_input("Orçamento N°", min_value=1, value=10)
@@ -390,56 +373,43 @@ with col_dados_gerais:
 
     st.subheader("Transporte e Observações")
     transportadora = {
-        'nome': st.text_input("Transportadora"), 'cnpj': st.text_input("CNPJ da Transportadora"),
+        'nome': st.text_input("Transportadora"),
+        'cnpj': st.text_input("CNPJ da Transportadora"),
         'telefone': st.text_input("Telefone da Transportadora")
     }
     observacoes = st.text_area("Observações")
 
-# --- LÓGICA DOS ITENS (sem alteração) ---
+# --- ITENS ---
 if 'itens' not in st.session_state:
     st.session_state.itens = []
 
-# --- [MODIFICADO] --- COLUNA DE ITENS ---
 with col_itens:
     st.subheader("Itens do Orçamento")
 
-    # --- [NOVO] Carregador de Produtos ---
+    # Carregar produtos cadastrados
     try:
         produtos_db = get_all_products()
         produto_map = {}
         if produtos_db:
             produtos_validos = [p for p in produtos_db if p.get('descricao') and p.get('id')]
-            # Mapeia a string de exibição para o dicionário completo do produto
             produto_map = {f"{p['descricao']} (SKU: {p.get('sku', 'N/A')})": p for p in produtos_validos}
-        
         opcoes_produto = ["- Digitar Manualmente -"] + list(produto_map.keys())
-        
-        # Este selectbox fica FORA do form. Ao mudar, ele recarrega o app
-        # e os valores padrão do form abaixo são atualizados.
         produto_selecionado_str = st.selectbox(
-            "Carregar Produto do Banco de Dados", 
-            options=opcoes_produto, 
-            key="produto_select" # Uma chave para o widget
+            "Carregar Produto do Banco de Dados",
+            options=opcoes_produto,
+            key="produto_select"
         )
-        
-        # Pega os dados do produto selecionado ou um dict vazio se for manual
         produto_default = {}
         if produto_selecionado_str != "- Digitar Manualmente -":
             produto_default = produto_map[produto_selecionado_str]
-    
     except Exception as e:
         st.error(f"Erro ao carregar produtos do BD: {e}")
-        produto_default = {} # Garante que 'produto_default' exista
-    # --- Fim do Carregador de Produtos ---
-
+        produto_default = {}
 
     with st.form(key="add_item_form", clear_on_submit=True):
         st.write("Adicionar novo item:")
         item_cols = st.columns([3, 1, 2, 1, 2])
 
-        # [MODIFICADO] Os campos agora usam 'value' para preencher 
-        # com os dados do 'produto_default' carregado acima.
-        
         with item_cols[0]:
             descricao = st.text_input("Descrição", value=produto_default.get('descricao', 'Chapa PSAI Tricamada'))
         with item_cols[1]:
@@ -455,12 +425,10 @@ with col_itens:
         with item_cols_2[0]:
             quantidade_kg = st.number_input("Qtd (KG)", min_value=0.01, value=1.0, format="%.2f")
         with item_cols_2[1]:
-            # [MODIFICADO] Converte o 'valor_kg' para float, com fallback
             valor_kg_default = float(produto_default.get('valor_kg', 1.0) or 1.0)
             valor_kg = st.number_input("Valor (KG)", min_value=0.01, value=valor_kg_default, format="%.2f")
 
         add_item_button = st.form_submit_button("Adicionar Item")
-
         if add_item_button:
             if not descricao or quantidade_kg <= 0 or valor_kg <= 0:
                 st.warning("Preencha a descrição, Qtd (KG) > 0 e Valor (KG) > 0.")
@@ -471,7 +439,7 @@ with col_itens:
                     'quantidade_kg': float(quantidade_kg), 'valor_kg': float(valor_kg),
                     'ipi_item': float(impostos_ipi)
                 })
-                st.rerun() # Atualiza a lista de itens imediatamente
+                st.rerun()
 
     if st.session_state.itens:
         st.write("Itens adicionados:")
@@ -479,7 +447,6 @@ with col_itens:
         for i, item in enumerate(st.session_state.itens):
             subtotal = item['quantidade_kg'] * item['valor_kg']
             st.text(f"{i+1}. {item['descricao']} ({item['medida']}) - {item['quantidade_kg']:.2f} KG x R${item['valor_kg']:.2f} = R${subtotal:,.2f}")
-
         st.markdown(f"**Total das Mercadorias: R$ {total_preview:,.2f}**")
 
         if st.button("Limpar Itens"):
@@ -488,7 +455,9 @@ with col_itens:
 
 st.markdown("---")
 
-# --- GERAÇÃO DO PDF (sem alteração) ---
+# ------------------------------------------------------------
+# GERAÇÃO DO PDF
+# ------------------------------------------------------------
 if st.button("Gerar PDF do Orçamento", type="primary"):
     if not cliente['razao_social'] or not st.session_state.itens:
         st.error("Preencha, no mínimo, a Razão Social do cliente e adicione pelo menos um item.")
@@ -506,10 +475,12 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
 
             dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
 
-            # >>> NOVO: gera a data URI da marca d'água (usa seu arquivo PNG)
-            watermark_datauri = to_data_uri("/workspaces/orcamentotransplas/watermark.png")
+            # Marca d'água: localizar arquivo e converter
+            wm_path = find_watermark_path()
+            watermark_datauri = to_data_uri(wm_path) if wm_path else None
+            if watermark_datauri is None:
+                st.warning("Não encontrei 'watermark.png'. O PDF tentará usar a logo da empresa como fallback.")
 
-            # >>> IMPORTANTE: coloque watermark_datauri DENTRO do dict 'dados'
             dados = {
                 'empresa': dados_empresa,
                 'orcamento_numero': orcamento_numero,
@@ -532,11 +503,12 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'transportadora': transportadora,
                 'observacoes': observacoes,
 
-                # >>> ESTA LINHA É A NOVIDADE <<<
+                # >>> NOVO: passa a marca d'água (data URI) para o template
                 'watermark_datauri': watermark_datauri
             }
 
             nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
+
             pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=True)
 
             if pdf_bytes:
