@@ -113,23 +113,6 @@
 </style>
 </head>
 <body>
-/* Força transparência no CORPO da tabela de itens (não mexe no cabeçalho) */
-.items-table { background: transparent !important; }
-
-.items-table tbody,
-.items-table tbody tr,
-.items-table tbody td,
-.items-table tbody td *,
-.items-table tbody tr * {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-/* Se ainda aparecer “placa” branca, o xhtml2pdf pode pintar a linha inteira:
-   isso cancela qualquer herança residual */
-.items-table tbody tr {
-  -pdf-keep-in-frame-mode: shrink; /* só ajuda em quebra de página; seguro manter */
-}
 
 <div class="company-info">
   {% if empresa.nome.upper().startswith("ISOFORMA") and empresa.logo_base64 %}
