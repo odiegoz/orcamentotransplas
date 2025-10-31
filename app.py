@@ -28,14 +28,16 @@ EMPRESAS = {
         'endereco': "RODOVIA DOM GABRIEL PAULINO BUENO COUTO, SN",
         'bairro_cidade_uf': "Bairro Pinhal - Cabreúva - SP",
         'cep': "13317-204",
-        'contato': "(11) 4409-0919"
+        'contato': "(11) 4409-0919",
+        'logo_path': "/workspaces/orcamentotransplas/logo_isoforma.png",
     },
     "PLASTY": {
         'nome': "PLASTY COMERCIAL DE PLÁSTICOS LTDA",
         'endereco': "RUA CARLOS SILVEIRA FRANCO NETO, 77",
         'bairro_cidade_uf': "Bairro do Jacaré - Cabreúva - SP",
         'cep': "13318-000",
-        'contato': "(11) 4409-0919"
+        'contato': "(11) 4409-0919",
+        'logo_path': "/workspaces/orcamentotransplas/logo_plasty.png",
     }
 }
 
@@ -62,16 +64,23 @@ except Exception as e:
     st.stop()
 
 # ------------------------------------------------------------
-# WATERMARK HELPERS
+# HELPERS (logo & watermark)
 # ------------------------------------------------------------
-def to_data_uri(path: Path):
+def encode_image_b64(path: str | Path) -> str | None:
+    """Lê imagem e retorna base64 (somente a string b64, sem data:)."""
+    p = Path(path) if path else None
+    if not p or not p.exists():
+        return None
+    return base64.b64encode(p.read_bytes()).decode("utf-8")
+
+def to_data_uri(path: Path | None) -> str | None:
     """Converte imagem local em data URI (base64). Retorna None se não achar."""
     if not path or not path.exists():
         return None
     mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
 
-def find_watermark_path():
+def find_watermark_path() -> Path | None:
     """Tenta localizar watermark.png em caminhos comuns (local/cloud)."""
     candidates = [
         Path(__file__).parent / "watermark.png",
@@ -479,11 +488,15 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
 
             dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
 
-            # Marca d'água: localizar arquivo e converter (Base64 data URI)
+            # Logo correta por empresa (base64 crua)
+            logo_b64 = encode_image_b64(dados_empresa.get('logo_path', ''))
+            dados_empresa['logo_base64'] = logo_b64 if logo_b64 else None
+
+            # Marca d'água: localizar arquivo e converter (Base64 data URI) — sem fallback de logo
             wm_path = find_watermark_path()
-            watermark_datauri = to_data_uri(wm_path) if wm_path else None
-            if watermark_datauri is None:
-                st.warning("Não encontrei 'watermark.png'. O PDF tentará usar a logo da empresa como fallback.")
+            watermark_datauri = to_data_uri(wm_path) if wm_path else ''
+            if not watermark_datauri:
+                st.warning("Não encontrei 'watermark.png'. O PDF sairá sem marca d’água.")
 
             dados = {
                 'empresa': dados_empresa,
@@ -506,9 +519,7 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 },
                 'transportadora': transportadora,
                 'observacoes': observacoes,
-
-                # >>> passa a marca d'água ao template
-                'watermark_datauri': watermark_datauri
+                'watermark_datauri': watermark_datauri,  # <<< só a watermark aqui
             }
 
             nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
