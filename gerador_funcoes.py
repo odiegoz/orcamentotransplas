@@ -1,159 +1,57 @@
-# gerador_funcoes.py — WeasyPrint (com verificação de pydyf) + fallback robusto xhtml2pdf
 import os
-import io
-import re
 import base64
 import traceback
 import streamlit as st
-from jinja2 import Environment, FileSystemLoader, TemplateNotFound
+from jinja2 import Environment, FileSystemLoader
+from weasyprint import HTML, CSS
 
-# --- Verifica WeasyPrint e pydyf compatível ---
-WEASY_AVAILABLE = True
-WEASY_REASON = ""
-try:
-    from weasyprint import HTML, CSS
-    try:
-        import pydyf
-        # Checa versão mínima compatível
-        PYDYF_VER = tuple(int(x) for x in pydyf.__version__.split('.')[:2])
-        if PYDYF_VER < (0, 11):
-            WEASY_AVAILABLE = False
-            WEASY_REASON = f"pydyf {pydyf.__version__} < 0.11 (incompatível com WeasyPrint 61.x)"
-    except Exception as e:
-        WEASY_AVAILABLE = False
-        WEASY_REASON = f"Falha ao verificar pydyf: {e}"
-except Exception as e:
-    WEASY_AVAILABLE = False
-    WEASY_REASON = f"WeasyPrint indisponível: {e}"
-
-# --- Sempre tenta carregar xhtml2pdf para fallback ---
-pisa = None
-try:
-    from xhtml2pdf import pisa as _pisa
-    pisa = _pisa
-except Exception:
-    # deixa pisa=None; vamos avisar no momento do uso
-    pass
-
-# --- Sanitizações auxiliares (mantidas) ---
-_ATTR_DIM_RE = re.compile(
-    r'\s*(?:height|width)\s*=\s*"(?:[^"]*)"|\s*(?:height|width)\s*=\s*\'(?:[^\']*)\'',
-    flags=re.IGNORECASE
-)
-_STYLE_DIM_RE_INTERNAL = re.compile(r'\b(height|width)\s*:\s*[^;"]+;?', flags=re.IGNORECASE)
-_STYLE_ATTR_RE_GENERIC = re.compile(r'(<[^>]*?)\sstyle\s*=\s*(")([^"]*)(")', flags=re.IGNORECASE)
-_STYLE_ATTR_RE_GENERIC_SINGLE = re.compile(r"(<[^>]*?)\sstyle\s*=\s*(')([^']*)(')", flags=re.IGNORECASE)
-_STYLE_ATTR_RE = re.compile(r'(<(?:td|th|tr|table)[^>]*?)\sstyle\s*=\s*"(?:[^"]*)"([^>]*>)', flags=re.IGNORECASE)
-
-def _sanitize_table_dimensions(html: str) -> str:
-    if not html:
-        return html
-    sanitized = _ATTR_DIM_RE.sub('', html)
-
-    def _strip_style_dims(match):
-        pre_tag, quote, style_content = match.group(1), match.group(2), match.group(3)
-        new_style_content = _STYLE_DIM_RE_INTERNAL.sub('', style_content)
-        new_style_content = re.sub(r';\s*;', ';', new_style_content).strip()
-        new_style_content = re.sub(r'\s{2,}', ' ', new_style_content)
-        return f'{pre_tag} style={quote}{new_style_content}{quote}'
-
-    sanitized = _STYLE_ATTR_RE_GENERIC.sub(_strip_style_dims, sanitized)
-    sanitized = _STYLE_ATTR_RE_GENERIC_SINGLE.sub(_strip_style_dims, sanitized)
-    sanitized = re.sub(r'\s{2,}', ' ', sanitized)
-    return sanitized
-
-def _remove_table_styles_completely(html: str) -> str:
-    if not html:
-        return html
-    out = _STYLE_ATTR_RE.sub(r'\1\2', html)
-    out = re.sub(r"(<(?:td|th|tr|table)[^>]*?)\sstyle\s*=\s*'(?:[^']*)'([^>]*>)", r'\1\2', out, flags=re.IGNORECASE)
-    return out
-
-# --- Logo base64 (opcional) ---
-def _get_logo_base64(script_dir: str):
+def _get_logo_base64(script_dir):
     logo_path = os.path.join(script_dir, "logo_isoforma.jpg")
     if not os.path.exists(logo_path):
         return None
     try:
-        with open(logo_path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
-    except Exception as e:
-        st.error(f"Erro ao carregar logo: {e}")
+        with open(logo_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
+    except:
         return None
 
-# --- Gerar PDF ---
+
 def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
     """
-    Preferência: WeasyPrint (se pydyf >= 0.11).
-    Fallback: xhtml2pdf (se WeasyPrint ausente/incompatível ou falhar).
-    Retorna bytes do PDF ou None.
+    Renderiza template Jinja2 e gera PDF usando 100% WeasyPrint.
+    Retorna bytes do PDF.
     """
     try:
         script_dir = os.path.dirname(os.path.realpath(__file__))
 
-        # Injeta logo se não veio nos dados
-        try:
-            if 'empresa' in dados and not dados['empresa'].get('logo_base64'):
-                logo_b64 = _get_logo_base64(script_dir)
-                if logo_b64:
-                    dados['empresa']['logo_base64'] = logo_b64
-        except Exception:
-            traceback.print_exc()
+        # Carrega logo para marca d´água e/ou cabeçalho
+        logo_b64 = _get_logo_base64(script_dir)
+        if logo_b64 and "empresa" in dados:
+            dados["empresa"]["logo_base64"] = logo_b64
 
-        # Carrega template Jinja
         env = Environment(loader=FileSystemLoader(script_dir), autoescape=False)
-        try:
-            template_rel_path = os.path.basename(template_path)
-            template = env.get_template(template_rel_path)
-        except TemplateNotFound:
-            st.error(f"Template '{template_rel_path}' não encontrado em: {script_dir}")
-            return None
+        template = env.get_template(os.path.basename(template_path))
 
         html_renderizado = template.render(dados)
+
         if debug_dump_html:
-            print("----- HTML Renderizado (início) -----")
-            print(html_renderizado[:2000])
-            print("----- (truncado) -----")
+            print("--- HTML ---")
+            print(html_renderizado[:2000], "...\n")
 
-        html_final = _sanitize_table_dimensions(html_renderizado)
+        html_obj = HTML(string=html_renderizado, base_url=script_dir)
 
-        # Caminho A: WeasyPrint só se pydyf compatível
-        if WEASY_AVAILABLE:
-            try:
-                pdf_bytes = HTML(string=html_final, base_url=script_dir).write_pdf(
-                    stylesheets=[CSS(string='@page { size: A4; margin: 12mm; }')]
-                )
-                return pdf_bytes
-            except Exception as e:
-                st.warning(f"WeasyPrint falhou: {e}. Farei fallback para xhtml2pdf.")
-                traceback.print_exc()
-        else:
-            if WEASY_REASON:
-                st.info(f"Usando xhtml2pdf porque WeasyPrint está indisponível/incompatível: {WEASY_REASON}")
+        # CSS global obrigatório para tamanho correto do A4
+        css_default = CSS(string="""
+            @page { size: A4; margin: 12mm; }
+            body { -webkit-print-color-adjust: exact; }
+        """)
 
-        # Caminho B: xhtml2pdf fallback
-        if pisa is None:
-            st.error("Nem WeasyPrint (compatível) funcionou, nem xhtml2pdf está disponível. "
-                     "Garanta pydyf>=0.11 com weasyprint==61.2 ou instale xhtml2pdf.")
-            return None
+        pdf_bytes = html_obj.write_pdf(stylesheets=[css_default])
 
-        try:
-            buf = io.BytesIO()
-            pisa_status = pisa.CreatePDF(src=html_final, dest=buf)
-            if pisa_status.err:
-                raise Exception(f"xhtml2pdf retornou erro: {pisa_status.err}")
-            return buf.getvalue()
-        except Exception:
-            html_fallback = _remove_table_styles_completely(html_renderizado)
-            buf2 = io.BytesIO()
-            pisa_status2 = pisa.CreatePDF(src=html_fallback, dest=buf2)
-            if pisa_status2.err:
-                st.error(f"Fallback xhtml2pdf também falhou: {pisa_status2.err}")
-                return None
-            st.info("PDF gerado com sucesso (modo fallback xhtml2pdf).")
-            return buf2.getvalue()
+        return pdf_bytes
 
     except Exception as e:
-        st.error(f"Ocorreu um erro ao gerar o PDF: {e}")
+        st.error(f"Erro ao gerar PDF: {e}")
+        print("[criar_pdf] ERRO:")
         traceback.print_exc()
         return None
