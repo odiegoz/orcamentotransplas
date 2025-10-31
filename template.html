@@ -13,7 +13,7 @@
      caixa suave:      #eaf5fc
   */
 
-  /* Marca d’água em todas as páginas (use PNG transparente) */
+  /* Marca d’água em todas as páginas (PNG transparente) */
   @page {
     size: A4 portrait;
     margin: 12mm;
@@ -44,7 +44,7 @@
   .meta td.left{ font-weight:700; font-size:11pt; color:#1f3b5b; }
   .meta td.right{ text-align:right; font-size:8.5pt; color:#444; }
 
-  /* Títulos de seção (CAIXA ALTA leve) */
+  /* Títulos de seção */
   .section-title{
     font-weight:700; font-size:12pt;
     margin:12px 0 8px 0;
@@ -63,38 +63,38 @@
     font-weight:700; color:#1f3b5b;
   }
 
-  /* Tabela de itens — TRANSPARENTE (mostra a watermark ao fundo) */
+  /* Tabela de itens — TRANSPARENTE (mostra a watermark) */
   .items-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
   .items-table thead th{
-    /* sem background para transparência */
-    background: transparent;
+    background: transparent;             /* sem fundo */
     color:#1f3b5b;
     padding:6px 6px;
     font-size:10pt;
     text-align:left;
-    border-bottom:2px solid #cfe5f6; /* só linha inferior */
+    border-bottom:2px solid #cfe5f6;     /* só linha inferior */
   }
   .items-table thead th.text-right{ text-align:right; }
   .items-table tbody td{
     padding:6px 6px;
-    border-bottom:1px solid #e6eaf0;  /* linhas finas */
+    border-bottom:1px solid #e6eaf0;     /* linhas finas */
     vertical-align:top; font-size:8.8pt;
-    background: transparent;          /* sem preenchimento */
+    background: transparent;             /* sem preenchimento */
   }
   .value-cell{ text-align:right; letter-spacing:.2px; }
 
   .item-desc{ font-weight:700; margin:0 0 4px 0; color:#1f3b5b; }
   .item-sub{ margin:0; font-size:8pt; color:#555; line-height:1.3; }
 
-  /* Tabela de Totais (VERTICAL, MENOR, no canto direito) */
-  .summary-wrapper{ width:100%; margin-top:10px; }
+  /* Totais (VERTICAL, CARTÃO PEQUENO no canto direito) */
+  .summary-wrap{ width:100%; margin-top:10px; text-align:right; } /* empurra o conteúdo à direita */
   .summary{
-    width:40%;              /* <<< mais estreita (ajuste aqui: 35–45%) */
-    float:right;
+    display:inline-table;   /* vira um “card” que respeita width */
+    width:40%;              /* <<< ajuste fino aqui (ex.: 35%) */
     border-collapse:collapse;
     font-size:9pt;
-    background:#f9fbfe;     /* leve caixa */
+    background:#f9fbfe;
     border:1px solid #cfe5f6;
+    text-align:left;        /* rótulos à esquerda */
   }
   .summary td{ padding:6px 8px; }
   .summary .label{ color:#2f4f6a; }
@@ -195,8 +195,8 @@
   </tbody>
 </table>
 
-<!-- RESUMO VERTICAL (menor, canto direito) -->
-<div class="summary-wrapper">
+<!-- RESUMO VERTICAL (cartão pequeno no canto direito) -->
+<div class="summary-wrap">
   <table class="summary">
     <tr>
       <td class="label">Base Cálculo ICMS:</td>
@@ -224,7 +224,6 @@
   <div><strong>Telefone:</strong> {{ transportadora.telefone }}</div>
 </div>
 
-<!-- Observações em caixa suave -->
 <div class="obs-box">
   {{ observacoes }}
 </div>
