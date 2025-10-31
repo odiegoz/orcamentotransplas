@@ -42,18 +42,18 @@
     text-transform:uppercase; letter-spacing:.2px;
   }
 
-  /* Blocos simples (SEM linhas entre campos) */
+  /* Blocos simples */
   .info-box-simple div{ padding:3px 0; font-size:8.5pt; line-height:1.3; }
   .info-box-simple strong{
     width:130px; display:inline-block; white-space:nowrap; vertical-align:top;
     font-weight:700; color:#1f3b5b;
   }
 
-  /* Tabela de itens — cabeçalho com fundo, corpo transparente */
+  /* Tabela de itens — cabeçalho com fundo pastel */
   .items-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
-  /* Cabeçalho da tabela (títulos) com fundo da paleta */
+
   .items-table thead th{
-    background: #eaf5fc;  /* <<< AJUSTE: Cor de fundo ("caixa") p/ o título */
+    background: #eaf5fc;  /* Cabeçalho mantém fundo (ok) */
     color:#1f3b5b;
     padding:6px 6px;
     font-size:10pt;
@@ -61,46 +61,34 @@
     border-bottom:2px solid #cfe5f6;
   }
   .items-table thead th.text-right{ text-align:right; }
-  /* Corpo da tabela (campos) com fundo transparente */
+
   .items-table tbody td{
     padding:6px 6px;
-    border-bottom:1px solid #e6eaf0; /* linhas finas */
+    border-bottom:1px solid #e6eaf0;
     vertical-align:top; font-size:8.8pt;
-    background:transparent;          /* SEM fundo (correto) */
   }
   .item-desc{ font-weight:700; margin:0 0 4px 0; color:#1f3b5b; }
   .item-sub{ margin:0; font-size:8pt; color:#555; line-height:1.3; }
   .value-cell{ text-align:right; letter-spacing:.2px; }
-/* Força transparência no CORPO da tabela de itens (não mexe no cabeçalho) */
 
-/* Força transparência real nos itens (xhtml2pdf exige nos 3 níveis) */
-.items-table,
-.items-table tbody,
-.items-table tr,
-.items-table td {
-    background: none !important;
-    background-color: transparent !important;
+  /* ⇩⇩⇩ CORREÇÃO DEFINITIVA DE TRANSPARÊNCIA ⇩⇩⇩ */
+  .items-table,
+  .items-table tbody,
+  .items-table tr,
+  .items-table td {
+      background: none !important;
+      background-color: transparent !important;
   }
+  /* ⇧⇧⇧ NÃO REMOVER ESSA SEÇÃO ⇧⇧⇧ */
 
-/* Se ainda aparecer “placa” branca, o xhtml2pdf pode pintar a linha inteira:
-   isso cancela qualquer herança residual */
-.items-table tbody tr {
-  -pdf-keep-in-frame-mode: shrink; /* só ajuda em quebra de página; seguro manter */
-}
-
-
-  /* Totais — cartão pequeno à direita (via container em 2 colunas) */
+  /* Totais */
   .totals-container{ width:100%; border-collapse:collapse; margin-top:10px; }
-  .totals-container td{ vertical-align:top; }
-  .totals-left{ width:60%; }      /* ocupa espaço vazio à esquerda */
-  .totals-right{ width:40%; }     /* coluna do cartão */
+  .totals-left{ width:60%; }
+  .totals-right{ width:40%; }
   .summary{
-    width:100%;              /* ocupa só a célula da direita */
-    border-collapse:collapse;
-    font-size:9pt;
-    background:#f9fbfe;
-    border:1px solid #cfe5f6;
-    text-align:left;
+    width:100%; font-size:9pt;
+    background:#f9fbfe; border:1px solid #cfe5f6;
+    border-collapse:collapse; text-align:left;
   }
   .summary td{ padding:6px 8px; }
   .summary .label{ color:#2f4f6a; }
@@ -110,23 +98,13 @@
     background:#eaf5fc; border-top:1px solid #cfe5f6; color:#1f3b5b;
   }
 
-  /* Observações */
   .obs-box{ background:#f7fbff; border:1px solid #e4effa; padding:6px 8px; border-radius:3px; color:#2f4f6a; margin-top:6px; clear:both; }
 
-  /* Rodapé */
   .pdf-footer{
     position:fixed; bottom:10mm; left:12mm; right:12mm;
     text-align:center; font-size:8pt; color:#666; border-top:1px solid #ccc; padding-top:5px;
   }
 
-  @media print{
-    thead{ display:table-header-group; }
-    tfoot{ display:table-footer-group; }
-    table{ page-break-inside:auto; }
-    tr, td, th, img, p{ page-break-inside:avoid; break-inside:avoid; }
-    .info-box-simple, .meta, .company-info{ page-break-inside:avoid; break-inside:avoid; }
-    .section-title{ page-break-after:avoid; }
-  }
 </style>
 </head>
 <body>
@@ -139,8 +117,8 @@
     <p>Contato: {{ empresa.contato }}</p>
   {% else %}
     <h1>{{ empresa.nome }}</h1>
-    <p style="color:#333;">{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
-    <p style="color:#333;">Contato: {{ empresa.contato }}</p>
+    <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
+    <p>Contato: {{ empresa.contato }}</p>
   {% endif %}
 </div>
 
