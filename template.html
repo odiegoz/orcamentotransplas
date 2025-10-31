@@ -51,11 +51,14 @@
 
   /* Tabela de itens — cabeçalho com fundo, corpo transparente */
   .items-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
+  /* Cabeçalho da tabela totalmente transparente para não cobrir a marca d'água */
   .items-table thead th{
-    background:#eaf5fc;   /* fundo APENAS no título */
+    background: transparent !important;   /* <<< remove fundo */
     color:#1f3b5b;
-    padding:6px 6px; font-size:10pt; text-align:left;
-    border-bottom:2px solid #cfe5f6;
+    padding:6px 6px;
+    font-size:10pt;
+    text-align:left;
+    border-bottom:2px solid #cfe5f6;      /* mantém apenas a linha */
   }
   .items-table thead th.text-right{ text-align:right; }
   .items-table tbody td{
