@@ -1,3 +1,11 @@
+import importlib, streamlit as st
+try:
+    weasy = importlib.import_module("weasyprint")
+    pydyf = importlib.import_module("pydyf")
+    st.caption(f"WeasyPrint={getattr(weasy, '__version__', 'unknown')}, pydyf={getattr(pydyf, '__version__', 'unknown')}")
+except Exception as _e:
+    st.caption(f"Verificação de versões falhou: {_e}")
+
 import os
 import base64
 import traceback
