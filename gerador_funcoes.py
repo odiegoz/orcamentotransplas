@@ -1,23 +1,30 @@
+# gerador_funcoes.py — versão WeasyPrint
+import os
+import io
+import re
+import base64
+import traceback
 import streamlit as st
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
-from xhtml2pdf import pisa
-import os
-import traceback
-import re
-import io
-import base64 # Importado para corrigir a imagem
 
-# --- Funções de Sanitização (Mantidas como estavam) ---
-_ATTR_DIM_RE = re.compile(r'\s*(?:height|width)\s*=\s*"(?:[^"]*)"|\s*(?:height|width)\s*=\s*\'(?:[^\']*)\'', flags=re.IGNORECASE)
+# WeasyPrint
+from weasyprint import HTML, CSS
+
+# --- Sanitizações (mantidas; não são obrigatórias no WeasyPrint, mas ajudam a limpar) ---
+_ATTR_DIM_RE = re.compile(
+    r'\s*(?:height|width)\s*=\s*"(?:[^"]*)"|\s*(?:height|width)\s*=\s*\'(?:[^\']*)\'',
+    flags=re.IGNORECASE
+)
 _STYLE_DIM_RE_INTERNAL = re.compile(r'\b(height|width)\s*:\s*[^;"]+;?', flags=re.IGNORECASE)
 _STYLE_ATTR_RE_GENERIC = re.compile(r'(<[^>]*?)\sstyle\s*=\s*(")([^"]*)(")', flags=re.IGNORECASE)
 _STYLE_ATTR_RE_GENERIC_SINGLE = re.compile(r"(<[^>]*?)\sstyle\s*=\s*(')([^']*)(')", flags=re.IGNORECASE)
 _STYLE_ATTR_RE = re.compile(r'(<(?:td|th|tr|table)[^>]*?)\sstyle\s*=\s*"(?:[^"]*)"([^>]*>)', flags=re.IGNORECASE)
 
 def _sanitize_table_dimensions(html: str) -> str:
-    if not html: return html
+    if not html:
+        return html
     sanitized = _ATTR_DIM_RE.sub('', html)
-    
+
     def _strip_style_dims(match):
         pre_tag, quote, style_content = match.group(1), match.group(2), match.group(3)
         new_style_content = _STYLE_DIM_RE_INTERNAL.sub('', style_content)
@@ -30,101 +37,78 @@ def _sanitize_table_dimensions(html: str) -> str:
     sanitized = re.sub(r'\s{2,}', ' ', sanitized)
     return sanitized
 
-def _remove_table_styles_completely(html: str) -> str:
-    if not html: return html
-    out = _STYLE_ATTR_RE.sub(r'\1\2', html)
-    out = re.sub(r"(<(?:td|th|tr|table)[^>]*?)\sstyle\s*=\s*'(?:[^']*)'([^>]*>)", r'\1\2', out, flags=re.IGNORECASE)
-    return out
-
-# --- CORREÇÃO: Função para carregar e encodar a logo ---
-def _get_logo_base64(script_dir):
+# --- Logo em Base64 (opcional) ---
+def _get_logo_base64(script_dir: str):
+    """
+    Tenta carregar 'logo_isoforma.jpg' no mesmo diretório do script.
+    Se não existir, não é erro (a logo pode vir via dados['empresa']['logo_base64']).
+    """
     logo_path = os.path.join(script_dir, "logo_isoforma.jpg")
     if not os.path.exists(logo_path):
-        st.warning("logo_isoforma.jpg não encontrada.")
+        # Avisa, mas não trava
+        st.warning("logo_isoforma.jpg não encontrada (ok se você já injeta a logo via dados['empresa']['logo_base64']).")
         return None
     try:
         with open(logo_path, "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-        return encoded_string
+            return base64.b64encode(image_file.read()).decode("utf-8")
     except Exception as e:
         st.error(f"Erro ao carregar logo: {e}")
         return None
 
-# --- FUNÇÃO DE GERAR PDF (Corrigida para Streamlit) ---
-
+# --- Principal: gerar PDF com WeasyPrint ---
 def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
     """
-    Renderiza o template Jinja2 e converte para PDF em memória (io.BytesIO).
-    Retorna os bytes do PDF ou None em caso de erro.
+    Renderiza o template Jinja2 e converte para PDF com WeasyPrint.
+    Retorna bytes do PDF ou None em caso de erro.
+
+    Observações:
+    - WeasyPrint respeita transparência no PNG e `@page { background-image }`.
+    - Suporta `background-size`, caso queira ajustar a marca d'água no template.
     """
     try:
-        # Pega o diretório onde este script (gerador_funcoes.py) está
         script_dir = os.path.dirname(os.path.realpath(__file__))
-        
-        # --- CORREÇÃO: Carrega a logo e injeta nos dados ---
-        logo_b64 = _get_logo_base64(script_dir)
-        if logo_b64:
-            # Adiciona a logo dentro do dicionário da empresa
-            if 'empresa' in dados:
-                dados['empresa']['logo_base64'] = logo_b64
-        # --- Fim da correção da logo ---
 
+        # Injeta logo base64 se não veio nos dados
+        try:
+            if 'empresa' in dados and not dados['empresa'].get('logo_base64'):
+                logo_b64 = _get_logo_base64(script_dir)
+                if logo_b64:
+                    dados['empresa']['logo_base64'] = logo_b64
+        except Exception:
+            # Não trava o fluxo se algo der errado aqui
+            traceback.print_exc()
+
+        # Carrega template
         env = Environment(loader=FileSystemLoader(script_dir), autoescape=False)
-        
         try:
             template_rel_path = os.path.basename(template_path)
             template = env.get_template(template_rel_path)
         except TemplateNotFound:
             st.error(f"Template '{template_rel_path}' não encontrado em: {script_dir}")
-            print(f"[criar_pdf] ERRO: Template '{template_rel_path}' não encontrado em: {script_dir}")
             return None
 
+        # Renderiza
         html_renderizado = template.render(dados)
-        
         if debug_dump_html:
-            print(f"--- HTML Renderizado (Debug) --- \n{html_renderizado[:1500]}...")
+            print("----- HTML Renderizado (início) -----")
+            print(html_renderizado[:2000])
+            print("----- (truncado) -----")
 
-        html_sanitizado = _sanitize_table_dimensions(html_renderizado)
-        result_buffer = io.BytesIO()
-        
-        # Tentativa 1
-        try:
-            pisa_status = pisa.CreatePDF(src=html_sanitizado, dest=result_buffer)
-            if pisa_status.err:
-                st.warning(f"Erro na primeira tentativa do PDF (pisa_status.err): {pisa_status.err}")
-                print(f"[criar_pdf] Primeiro intento: pisa_status.err = {pisa_status.err}")
-                raise Exception("Erro no pisa na primeira tentativa")
-            
-            print("[criar_pdf] PDF gerado na primeira tentativa!")
-            return result_buffer.getvalue()
+        # Sanitização leve (opcional)
+        html_final = _sanitize_table_dimensions(html_renderizado)
 
-        # Fallback
-        except Exception as e_first:
-            st.warning(f"Primeira tentativa falhou: {e_first}. Tentando fallback...")
-            print(f"[criar_pdf] Primeiro intento falhou: {e_first}")
-            
-            html_fallback = _remove_table_styles_completely(html_renderizado)
-            fallback_buffer = io.BytesIO()
-            
-            try:
-                pisa_status2 = pisa.CreatePDF(src=html_fallback, dest=fallback_buffer)
-                if pisa_status2.err:
-                    st.error(f"Tentativa de fallback também falhou: {pisa_status2.err}")
-                    print(f"[criar_pdf] Segundo intento (fallback) também retornou erros: {pisa_status2.err}")
-                    return None
-                
-                st.info("PDF gerado com sucesso (modo fallback).")
-                print("[criar_pdf] PDF gerado com sucesso (modo fallback).")
-                return fallback_buffer.getvalue()
-                
-            except Exception as e_second:
-                st.error(f"Exceção catastrófica no fallback: {e_second}")
-                print("[criar_pdf] Segundo intento (fallback) levantou exceção:")
-                traceback.print_exc()
-                return None
+        # Geração do PDF
+        # base_url permite resolver caminhos relativos de imgs/css se existirem
+        pdf_bytes = HTML(string=html_final, base_url=script_dir).write_pdf(
+            stylesheets=[
+                CSS(string='@page { size: A4; margin: 12mm; }')  # redundante com seu CSS, mas seguro
+            ]
+        )
+
+        return pdf_bytes
 
     except Exception as e:
-        st.error(f"Ocorreu uma exceção inesperada em criar_pdf: {e}")
-        print("[criar_pdf] Ocorreu uma exceção inesperada em criar_pdf:")
+        st.error(f"Erro ao gerar PDF com WeasyPrint: {e}")
         traceback.print_exc()
         return None
+# --- Fim do gerador_funcoes.py ---

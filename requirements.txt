@@ -2,5 +2,5 @@ streamlit
 st-gsheets-connection
 gspread
 pandas
-xhtml2pdf
-Jinja2
+jinja2
+weasyprint==61.2
