@@ -534,3 +534,15 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 )
             else:
                 st.error("Ocorreu um erro ao gerar o PDF. Verifique os logs.")
+from pathlib import Path, PurePosixPath
+import base64
+
+def to_data_uri(path: str):
+    p = Path(path)
+    if not p.exists(): return None
+    mime = "image/png" if p.suffix.lower()==".png" else "image/jpeg"
+    import base64
+    return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
+
+watermark_datauri = to_data_uri("/workspaces/orcamentotransplas/watermark.png")
+dados['watermark_datauri'] = watermark_datauri

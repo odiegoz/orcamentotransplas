@@ -9,6 +9,26 @@
     --cor-principal: #367c2b; /* Tom de verde da logo Isoforma */
   }
 
+  /* --- MARCA D'ÁGUA DISCRETA (central, menor) --- */
+  /* Usa {{ watermark_datauri }} (data:image/...;base64,...) se vier do app.
+     Caso contrário, tenta cair na logo base64 da empresa (se houver). */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 60%;
+    left: 50%;
+    width: 38%;
+    height: 38%;
+    background-image: url("{{ watermark_datauri if watermark_datauri else ('data:image/jpeg;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.07;                 /* ajuste 0.05–0.12 conforme desejar */
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    pointer-events: none;
+  }
+
   @page { size: A4 portrait; margin: 12mm; }
   html,body { font-family: Arial, Helvetica, sans-serif; color:#222; font-size:9pt; margin:0; padding:0; box-sizing:border-box; -webkit-text-size-adjust:none; }
   *,*:before,*:after { box-sizing:inherit; }
@@ -108,7 +128,6 @@
   }
   /* --- FIM DA MELHORIA --- */
 
-
   /* --- MELHORIA: Rodapé --- */
   .pdf-footer { 
     position: fixed; 
@@ -123,6 +142,26 @@
   }
   h1, p { margin: 0; padding: 0; }
   td { word-break:break-word; hyphens:auto; }
+
+  /* ---- Regras de impressão ---- */
+  @media print {
+    thead { display: table-header-group; }  /* repete cabeçalho */
+    tfoot { display: table-footer-group; }
+
+    table { page-break-inside: auto; }
+    tr, td, th, img, p { page-break-inside: avoid; break-inside: avoid; }
+
+    .summary-wrapper,
+    .info-box-simple,
+    .meta,
+    .company-info { page-break-inside: avoid; break-inside: avoid; }
+
+    .section-title { page-break-after: avoid; }
+
+    /* Opcional: forçar quebra “bonita” a cada 22 linhas
+       .items-table tbody tr:nth-child(22n) { page-break-after: always; }
+    */
+  }
 </style>
 </head>
 <body>
@@ -236,7 +275,6 @@
   </table>
   <!-- FIM DA CORREÇÃO -->
 
-
   <div class="section-title">Condições de Pagamento e Entrega</div>
   <div class="info-box-simple">
     <div><strong>Cond. Pagto:</strong> {{ pagamento.condicao }}</div>
@@ -245,7 +283,8 @@
     <div><strong>Valor da Parcela:</strong> R$ {{ "%.2f"|format(pagamento.valor_parcela) }}</div>
   </div>
 
-  <div classs="section-title">Transportadora e Observações</div>
+  <!-- typo corrigido: class="section-title" -->
+  <div class="section-title">Transportadora e Observações</div>
   <div class="info-box-simple">
     <div><strong>Transportadora:</strong> {{ transportadora.nome }}</div>
     <div><strong>CNPJ:</strong> {{ transportadora.cnpj }}</div>
@@ -259,4 +298,3 @@
 
 </body>
 </html>
-
