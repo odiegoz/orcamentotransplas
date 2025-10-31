@@ -49,17 +49,18 @@
     font-weight:700; color:#1f3b5b;
   }
 
-  /* Tabela de itens — cabeçalho com fundo, corpo transparente */
-  .items-table{ width:100%; border-collapse:collapse; table-layout:fixed; margin-top:6px; }
-  /* Cabeçalho da tabela (títulos) com fundo da paleta */
-  .items-table thead th{
-    background: #eaf5fc;  /* <<< AJUSTE: Cor de fundo ("caixa") p/ o título */
-    color:#1f3b5b;
-    padding:6px 6px;
-    font-size:10pt;
-    text-align:left;
-    border-bottom:2px solid #cfe5f6;
-  }
+ /* Cabeçalho da tabela totalmente transparente (não tampa a watermark) */
+.items-table{ background: transparent !important; }
+.items-table thead{ background: transparent !important; }
+.items-table thead tr{ background: transparent !important; }
+.items-table thead th{
+  background: transparent !important;  /* removido o #eaf5fc */
+  color:#1f3b5b;
+  padding:6px 6px;
+  font-size:10pt;
+  text-align:left;
+  border-bottom:2px solid #cfe5f6;     /* mantém só a linha inferior */
+}
   .items-table thead th.text-right{ text-align:right; }
   /* Corpo da tabela (campos) com fundo transparente */
   .items-table tbody td{
