@@ -7,25 +7,21 @@
   /* Paleta fixa */
   /* azul escuro: #2b5f86 | texto: #1f3b5b | borda: #cfe5f6 | caixa: #eaf5fc */
 
-  /* --- Marca d’água agora no HTML (controlável via background-size) --- */
+  /* Marca d’água no HTML: controle o tamanho por background-size */
   html{
-    background-image:url("{{ watermark_datauri if watermark_datauri else ('data:image/png;base64,' ~ empresa.logo_base64 if empresa.logo_base64 else '') }}");
+    background-image:url("{{ watermark_datauri }}");
     background-repeat:no-repeat;
     background-position:center center;
-    background-size:100%; /* ajuste aqui: 25% menor / 40% maior */
+    background-size:70%; /* ajuste conforme desejar (ex.: 60%, 80%, 100%) */
   }
 
+  /* Conteúdo com padding interno (margem visual) */
+  @page{ size:A4 portrait; margin:0; }
   body{
     font-family:Arial, Helvetica, sans-serif;
     color:#222; font-size:9pt;
-    margin:0; padding:12mm;   /* Mantém margem visual */
+    margin:0; padding:12mm;
     background:transparent;
-  }
-
-  /* Remove marcas d’água antigas do @page */
-  @page{
-    size:A4 portrait;
-    margin:12mm;
   }
 
   /* Cabeçalho */
@@ -34,11 +30,13 @@
   .company-info h1{ font-size:15pt; margin:0; color:#1f3b5b; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
+  /* Meta */
   .meta{ width:100%; border-collapse:collapse; margin:8px 0; }
-  .meta td{ padding:2px 4px; }
+  .meta td{ padding:2px 4px; vertical-align:top; }
   .meta .left{ font-size:11pt; font-weight:700; color:#1f3b5b; }
   .meta .right{ text-align:right; font-size:8.5pt; color:#444; }
 
+  /* Títulos de seção */
   .section-title{
     font-weight:700; font-size:12pt;
     border-bottom:2px solid #2b5f86;
@@ -46,19 +44,20 @@
     padding-bottom:4px; color:#2b5f86;
   }
 
-  .info-box-simple div{
-    padding:2px 0; font-size:8.5pt;
-  }
+  /* Blocos simples */
+  .info-box-simple div{ padding:2px 0; font-size:8.5pt; }
   .info-box-simple strong{
     width:130px; display:inline-block; color:#1f3b5b;
   }
 
   /* Tabela de Itens — cabeçalho leve / corpo totalmente transparente */
   .items-table{
-    width:100%; border-collapse:separate;
-    border-spacing:0; table-layout:fixed;
-    background:transparent !important;
+    width:100%;
+    border-collapse:separate;   /* importante para não “chapar” fundo */
+    border-spacing:0;
+    table-layout:fixed;
     margin-top:6px;
+    background:transparent !important;
   }
 
   .items-table thead th{
@@ -72,34 +71,41 @@
     padding:6px;
     border-bottom:1px solid #e6eaf0;
     font-size:8.8pt;
+    background:transparent !important;    /* força transparência na célula */
   }
 
-  /* Força transparência REAL */
-  .items-table tbody, .items-table tr, .items-table td{
+  /* Força transparência real no corpo (todos os níveis) */
+  .items-table tbody,
+  .items-table tbody tr,
+  .items-table tbody td,
+  .items-table tbody *{
     background:transparent !important;
+    background-color:transparent !important;
   }
 
   .item-desc{ font-weight:700; margin-bottom:3px; color:#1f3b5b; }
   .item-sub{ font-size:8pt; color:#555; }
   .value-cell{ text-align:right; }
 
-  /* Totais em caixa pequena à direita */
+  /* Totais — caixa pequena à direita */
   .totals-container{ width:100%; margin-top:10px; }
   .totals-left{ width:60%; }
   .totals-right{ width:40%; text-align:right; }
 
   .summary{
-    display:inline-table;
+    display:inline-table;       /* encolhe ao conteúdo */
+    width:auto;
     border-collapse:collapse;
     background:#f9fbfe;
     border:1px solid #cfe5f6;
     font-size:9pt;
-    width:auto;
+    text-align:left;
   }
   .summary td{ padding:6px 8px; color:#2f4f6a; }
   .summary .text-right{ text-align:right; font-weight:700; color:#1f3b5b; }
   .summary .total-row td{
-    background:#eaf5fc; border-top:1px solid #cfe5f6; font-weight:700; font-size:11pt;
+    background:#eaf5fc; border-top:1px solid #cfe5f6;
+    font-weight:700; font-size:11pt;
   }
 
   /* Observações */
@@ -108,6 +114,7 @@
     padding:6px 8px; margin-top:6px; color:#2f4f6a;
   }
 
+  /* Rodapé */
   .pdf-footer{
     margin-top:18px;
     text-align:center; font-size:8pt; color:#666;
@@ -119,7 +126,7 @@
 
 <div class="company-info">
   {% if empresa.logo_base64 %}
-    <img class="logo-top" src="data:image/png;base64,{{ empresa.logo_base64 }}">
+    <img class="logo-top" src="data:image/png;base64,{{ empresa.logo_base64 }}" alt="Logo">
   {% endif %}
   <h1>{{ empresa.nome }}</h1>
   <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
@@ -127,13 +134,13 @@
 </div>
 
 <table class="meta">
-<tr>
-  <td class="left">Orçamento Nº: {{ orcamento_numero }}</td>
-  <td class="right">
-    <strong>Data:</strong> {{ data_emissao }}<br>
-    <strong>Vendedor:</strong> {{ vendedor }}
-  </td>
-</tr>
+  <tr>
+    <td class="left">Orçamento Nº: {{ orcamento_numero }}</td>
+    <td class="right">
+      <strong>Data:</strong> {{ data_emissao }}<br>
+      <strong>Vendedor:</strong> {{ vendedor }}
+    </td>
+  </tr>
 </table>
 
 <div class="section-title">Dados do Cliente</div>
@@ -152,44 +159,56 @@
 <div class="section-title">Itens do Orçamento</div>
 
 <table class="items-table">
-<thead>
-<tr>
-  <th style="width:78%;">Descrição dos Produtos</th>
-  <th class="text-right" style="width:22%;">Total s/ IPI</th>
-</tr>
-</thead>
-<tbody>
-{% for item in itens %}
-<tr>
-  <td>
-    <div class="item-desc">{{ item.descricao }}</div>
-    <div class="item-sub">
-      <strong>Medida:</strong> {{ item.medida }} | 
-      <strong>Cor:</strong> {{ item.cor_codigo }} | 
-      <strong>Acab:</strong> {{ item.acabamento }} | 
-      <strong>Filme:</strong> {{ item.filme }}
-    </div>
-    <div class="item-sub">{{ "%.2f"|format(item.quantidade_kg) }} KG × R$ {{ "%.2f"|format(item.valor_kg) }} — IPI {{ "%.2f"|format(item.ipi_item) }}%</div>
-  </td>
-  <td class="value-cell">R$ {{ "%.2f"|format(item.quantidade_kg * item.valor_kg) }}</td>
-</tr>
-{% endfor %}
-</tbody>
+  <thead>
+    <tr>
+      <th style="width:78%;">Descrição dos Produtos</th>
+      <th class="text-right" style="width:22%;">Total s/ IPI</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in itens %}
+    <tr>
+      <td>
+        <div class="item-desc">{{ item.descricao }}</div>
+        <div class="item-sub">
+          <strong>Medida:</strong> {{ item.medida }} |
+          <strong>Cor:</strong> {{ item.cor_codigo }} |
+          <strong>Acab:</strong> {{ item.acabamento }} |
+          <strong>Filme:</strong> {{ item.filme }}
+        </div>
+        <div class="item-sub">{{ "%.2f"|format(item.quantidade_kg) }} KG × R$ {{ "%.2f"|format(item.valor_kg) }} — IPI {{ "%.2f"|format(item.ipi_item) }}%</div>
+      </td>
+      <td class="value-cell">R$ {{ "%.2f"|format(item.quantidade_kg * item.valor_kg) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
 </table>
 
 <!-- Totais -->
 <table class="totals-container">
-<tr>
-  <td class="totals-left"></td>
-  <td class="totals-right">
-    <table class="summary">
-      <tr><td>Base Cálculo ICMS:</td><td class="text-right">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td></tr>
-      <tr><td>ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td><td class="text-right">(informativo)</td></tr>
-      <tr><td>Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td><td class="text-right">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td></tr>
-      <tr class="total-row"><td>Total NF:</td><td class="text-right">R$ {{ "%.2f"|format(totais.total_nf) }}</td></tr>
-    </table>
-  </td>
-</tr>
+  <tr>
+    <td class="totals-left"></td>
+    <td class="totals-right">
+      <table class="summary">
+        <tr>
+          <td>Base Cálculo ICMS:</td>
+          <td class="text-right">R$ {{ "%.2f"|format(totais.base_calculo_icms) }}</td>
+        </tr>
+        <tr>
+          <td>ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td>
+          <td class="text-right">(informativo)</td>
+        </tr>
+        <tr>
+          <td>Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td>
+          <td class="text-right">R$ {{ "%.2f"|format(totais.valor_ipi) }}</td>
+        </tr>
+        <tr class="total-row">
+          <td>Total NF:</td>
+          <td class="text-right">R$ {{ "%.2f"|format(totais.total_nf) }}</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
 </table>
 
 <div class="section-title">Transportadora e Observações</div>
