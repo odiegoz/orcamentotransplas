@@ -4,6 +4,16 @@ from datetime import date, datetime
 from gerador_funcoes import criar_pdf
 import io
 import traceback
+import base64
+from pathlib import Path
+
+def to_data_uri(path: str):
+    p = Path(path)
+    if not p.exists():
+        return None
+    mime = "image/png" if p.suffix.lower()==".png" else "image/jpeg"
+    return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
+
 
 # --- [MODIFICADO] --- Importações do Google Sheets
 from streamlit_gsheets import GSheetsConnection
@@ -496,6 +506,10 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
 
             dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
 
+            # >>> NOVO: gera a data URI da marca d'água (usa seu arquivo PNG)
+            watermark_datauri = to_data_uri("/workspaces/orcamentotransplas/watermark.png")
+
+            # >>> IMPORTANTE: coloque watermark_datauri DENTRO do dict 'dados'
             dados = {
                 'empresa': dados_empresa,
                 'orcamento_numero': orcamento_numero,
@@ -505,7 +519,7 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'itens': st.session_state.itens,
                 'pagamento': {
                     'condicao': pagamento_condicao,
-                    'qtde_parcelas': qtde_parcelas_int, 
+                    'qtde_parcelas': qtde_parcelas_int,
                     'data_entrega': pagamento_data_entrega.strftime('%d/%m/%Y'),
                     'valor_parcela': valor_parcela
                 },
@@ -516,16 +530,17 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                     'total_kg': sum(float(item['quantidade_kg']) for item in st.session_state.itens)
                 },
                 'transportadora': transportadora,
-                'observacoes': observacoes
+                'observacoes': observacoes,
+
+                # >>> ESTA LINHA É A NOVIDADE <<<
+                'watermark_datauri': watermark_datauri
             }
 
             nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
-
             pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=True)
 
             if pdf_bytes:
                 st.success(f"PDF '{nome_arquivo_pdf}' gerado com sucesso!")
-
                 st.download_button(
                     label="Clique aqui para baixar o PDF",
                     data=pdf_bytes,
@@ -534,15 +549,3 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 )
             else:
                 st.error("Ocorreu um erro ao gerar o PDF. Verifique os logs.")
-from pathlib import Path, PurePosixPath
-import base64
-
-def to_data_uri(path: str):
-    p = Path(path)
-    if not p.exists(): return None
-    mime = "image/png" if p.suffix.lower()==".png" else "image/jpeg"
-    import base64
-    return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
-
-watermark_datauri = to_data_uri("/workspaces/orcamentotransplas/watermark.png")
-dados['watermark_datauri'] = watermark_datauri
