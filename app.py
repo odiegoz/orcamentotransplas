@@ -21,6 +21,7 @@ st.title("📄 Gerador de Propostas e Orçamentos")
 
 # ------------------------------------------------------------
 # DADOS DAS EMPRESAS
+# (pode deixar .png ou .jpg aqui; se não achar, o finder tenta alternativas)
 # ------------------------------------------------------------
 EMPRESAS = {
     "ISOFORMA": {
@@ -67,21 +68,18 @@ except Exception as e:
 # HELPERS (logo & watermark)
 # ------------------------------------------------------------
 def encode_image_b64(path: str | Path) -> str | None:
-    """Lê imagem e retorna base64 (somente a string b64, sem data:)."""
     p = Path(path) if path else None
     if not p or not p.exists():
         return None
     return base64.b64encode(p.read_bytes()).decode("utf-8")
 
 def to_data_uri(path: Path | None) -> str | None:
-    """Converte imagem local em data URI (base64). Retorna None se não achar."""
     if not path or not path.exists():
         return None
     mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
 
 def find_watermark_path() -> Path | None:
-    """Tenta localizar watermark.png em caminhos comuns (local/cloud)."""
     candidates = [
         Path(__file__).parent / "watermark.png",
         Path(__file__).parent / "assets" / "watermark.png",
@@ -95,12 +93,54 @@ def find_watermark_path() -> Path | None:
             return p
     return None
 
+# ---------- FINDER DE LOGO (robusto para .png/.jpg e múltiplos diretórios) ----------
+def find_logo_path_from_hint(empresa_key: str, hint: str | Path | None) -> Path | None:
+    empresa_key = (empresa_key or "").upper()
+    base_names = []
+
+    # 1) do hint (se veio um path ou só um nome)
+    if hint:
+        hint_path = Path(str(hint))
+        if hint_path.name:
+            base_names.append(hint_path.name)
+
+    # 2) nomes padrão por empresa
+    nome_base = f"logo_{empresa_key.lower()}"
+    base_names += [f"{nome_base}.png", f"{nome_base}.jpg"]
+
+    # remover duplicados mantendo ordem
+    seen = set()
+    base_names = [x for x in base_names if not (x in seen or seen.add(x))]
+
+    search_dirs = [
+        Path(__file__).parent,
+        Path(__file__).parent / "assets",
+        Path.cwd(),
+        Path.cwd() / "assets",
+        Path("/workspaces/orcamentotransplas"),
+        Path("/mount/src/orcamentotransplas"),
+    ]
+
+    # Se o hint era um path absoluto, tente ele primeiro
+    if hint and Path(str(hint)).is_absolute():
+        p = Path(str(hint))
+        if p.exists():
+            return p
+
+    # Procura em todos os diretórios candidatos, para cada nome possível
+    for d in search_dirs:
+        for name in base_names:
+            p = d / name
+            if p.exists():
+                return p
+    return None
+# -------------------------------------------------------------------------------
+
 # ------------------------------------------------------------
 # FUNÇÕES DE BANCO (GOOGLE SHEETS)
 # ------------------------------------------------------------
 @st.cache_data(ttl=15)
 def carregar_aba(aba_nome, colunas_esperadas):
-    """Lê todos os dados de uma aba e retorna um DataFrame."""
     try:
         creds_json_text = st.secrets["gsheets"]["service_account_info"]
         creds_json = json.loads(creds_json_text)
@@ -162,7 +202,6 @@ def add_client(data_dict):
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet("Clientes")
 
-        # duplicidade CNPJ
         try:
             cnpj_col_index = COLUNAS_CLIENTES.index('cnpj') + 1
         except ValueError:
@@ -173,7 +212,6 @@ def add_client(data_dict):
             st.sidebar.error("Cliente com este CNPJ já existe.")
             return False
 
-        # próximo ID
         try:
             id_col_index = COLUNAS_CLIENTES.index('id') + 1
         except ValueError:
@@ -227,7 +265,6 @@ def add_product(data_dict):
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet("Produtos")
 
-        # duplicidade SKU
         try:
             sku_col_index = COLUNAS_PRODUTOS.index('sku') + 1
         except ValueError:
@@ -238,7 +275,6 @@ def add_product(data_dict):
             st.sidebar.error("Produto com este SKU já existe.")
             return False
 
-        # próximo ID
         try:
             id_col_index = COLUNAS_PRODUTOS.index('id') + 1
         except ValueError:
@@ -399,7 +435,6 @@ if 'itens' not in st.session_state:
 with col_itens:
     st.subheader("Itens do Orçamento")
 
-    # Carregar produtos cadastrados
     try:
         produtos_db = get_all_products()
         produto_map = {}
@@ -488,17 +523,17 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
 
             dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
 
-            # === LOGO: monta Data URI conforme extensão (PNG ou JPG) ===
-            logo_path = dados_empresa.get('logo_path', '')
-            logo_b64 = encode_image_b64(logo_path)
-            if logo_b64:
-                mime = "image/png" if str(logo_path).lower().endswith(".png") else "image/jpeg"
-                dados_empresa['logo_base64'] = f"data:{mime};base64,{logo_b64}"
+            # === LOGO: encontra arquivo real (png/jpg) e monta Data URI ===
+            hint = dados_empresa.get('logo_path', '')
+            logo_path_obj = find_logo_path_from_hint(empresa_selecionada_nome, hint)
+            if logo_path_obj:
+                mime = "image/png" if logo_path_obj.suffix.lower() == ".png" else "image/jpeg"
+                dados_empresa['logo_base64'] = f"data:{mime};base64," + encode_image_b64(logo_path_obj)
             else:
                 dados_empresa['logo_base64'] = None
-                st.warning(f"Logo não encontrado em '{logo_path}'. O PDF sairá sem logo.")
+                st.warning(f"Logo não encontrado (procurei por {hint} e variações em pastas padrão). O PDF sairá sem logo.")
 
-            # Marca d'água: localizar arquivo e converter (Base64 data URI) — sem fallback de logo
+            # Marca d'água
             wm_path = find_watermark_path()
             watermark_datauri = to_data_uri(wm_path) if wm_path else ''
             if not watermark_datauri:
@@ -525,7 +560,7 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 },
                 'transportadora': transportadora,
                 'observacoes': observacoes,
-                'watermark_datauri': watermark_datauri,  # <<< só a watermark aqui
+                'watermark_datauri': watermark_datauri,
             }
 
             nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
