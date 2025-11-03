@@ -26,7 +26,7 @@
 
   /* Cabeçalho */
   .company-info{ margin-bottom:6px; }
-  .logo-top{ height:48px; margin-bottom:6px; } /* (sem alterar logo) */
+  .logo-top{ height:48px; margin-bottom:6px; } /* sem mexer no logo */
   .company-info h1{ font-size:15pt; margin:0; color:#1f3b5b; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
@@ -120,23 +120,13 @@
 </head>
 <body>
 
-{# ======= Macro de moeda BRL (ajuste 4) ======= #}
+{# ======= Macro de moeda BRL (corrigido) ======= #}
 {% macro brl(v) -%}
-  {%- set s = "%.2f"|format(v) -%}
-  {%- set s = s.replace(",", "X") -%}
-  {%- set s = s.replace(".", ",") -%}
-  {%- set parts = s.split(",") -%}
-  {%- set inteiro = parts[0] -%}
-  {%- set frac = parts[1] -%}
-  {%- set out = "" -%}
-  {%- for i in range(inteiro|length) -%}
-    {%- set idx = inteiro|length - i - 1 -%}
-    {%- set out = inteiro[idx] ~ out -%}
-    {%- if (i+1) % 3 == 0 and idx != 0 -%}
-      {%- set out = "." ~ out -%}
-    {%- endif -%}
-  {%- endfor -%}
-  R$ {{ out }},{{ frac }}
+  {# garante número; se vier string/None, força 0.0 #}
+  {%- set n = (v if v is number else (0.0)) -%}
+  {%- set s = "{:,.2f}".format(n) -%}        {# exemplo: 1,234,567.89 #}
+  {%- set s = s.replace(",", "X").replace(".", ",").replace("X", ".") -%} {# vira 1.234.567,89 #}
+  R$ {{ s }}
 {%- endmacro %}
 
 <div class="company-info">
@@ -242,4 +232,4 @@
 </div>
 
 </body>
-</html> 
+</html>
