@@ -24,7 +24,7 @@ st.title("📄 Gerador de Propostas e Orçamentos")
 # ------------------------------------------------------------
 EMPRESAS = {
     "ISOFORMA": {
-        'nome': "ISOFORMA PLASTICOS INDUSTRIAIS LTDA",
+        'nome': "ISOFORMA PLÁSTICOS INDÚSTRIAIS LTDA",
         'endereco': "RODOVIA DOM GABRIEL PAULINO BUENO COUTO, SN",
         'bairro_cidade_uf': "Bairro Pinhal - Cabreúva - SP",
         'cep': "13317-204",
