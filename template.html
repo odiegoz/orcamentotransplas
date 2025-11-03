@@ -126,7 +126,7 @@
 
 <div class="company-info">
   {% if empresa.logo_base64 %}
-    <img class="logo-top" src="data:image/png;base64,{{ empresa.logo_base64 }}" alt="Logo">
+    <img class="logo-top" src="{{ empresa.logo_base64 }}" alt="Logo">
   {% endif %}
   <h1>{{ empresa.nome }}</h1>
   <p>{{ empresa.endereco }} - {{ empresa.bairro_cidade_uf }} - CEP: {{ empresa.cep }}</p>
