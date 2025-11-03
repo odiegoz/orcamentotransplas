@@ -58,6 +58,10 @@
     margin-top:6px;
     background:transparent !important;
   }
+  /* Largura das colunas via COLGROUP (garante alinhamento perfeito) */
+  .items-table col.col-desc  { width:80%; }
+  .items-table col.col-total { width:20%; }
+
   .items-table thead th{
     background:#eaf5fc; color:#1f3b5b;
     padding:6px; font-size:10pt; text-align:left;
@@ -164,11 +168,15 @@
 <div class="section-title">Itens do Orçamento</div>
 
 <table class="items-table">
+  <!-- colgroup garante mesma largura para cabeçalho e corpo -->
+  <colgroup>
+    <col class="col-desc">
+    <col class="col-total">
+  </colgroup>
   <thead>
     <tr>
-      <!-- ajuste 1: descrição reduzida para alinhar ao fim da linha azul -->
-      <th style="width:76%;">Descrição dos Produtos</th>
-      <th class="text-right" style="width:24%;">Total s/ IPI</th>
+      <th>Descrição dos Produtos</th>
+      <th class="text-right">Total s/ IPI</th>
     </tr>
   </thead>
   <tbody>
