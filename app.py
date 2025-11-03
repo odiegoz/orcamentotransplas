@@ -488,9 +488,15 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
 
             dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
 
-            # Logo correta por empresa (base64 crua)
-            logo_b64 = encode_image_b64(dados_empresa.get('logo_path', ''))
-            dados_empresa['logo_base64'] = logo_b64 if logo_b64 else None
+            # === PATCH: monta o logo como Data URI (JPEG) ===
+            logo_path = dados_empresa.get('logo_path', '')
+            logo_b64 = encode_image_b64(logo_path)
+            if logo_b64:
+                dados_empresa['logo_base64'] = f"data:image/jpeg;base64,{logo_b64}"
+            else:
+                dados_empresa['logo_base64'] = None
+            # === fim do patch ===
+
 
             # Marca d'água: localizar arquivo e converter (Base64 data URI) — sem fallback de logo
             wm_path = find_watermark_path()
