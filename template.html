@@ -7,7 +7,7 @@
   /* Paleta fixa */
   /* azul escuro: #2b5f86 | texto: #1f3b5b | borda: #cfe5f6 | caixa: #eaf5fc */
 
-  /* Marca d’água */
+  /* Marca d’água no fundo da página */
   html{
     background-image:url("{{ watermark_datauri }}");
     background-repeat:no-repeat;
@@ -26,16 +26,21 @@
 
   /* Cabeçalho */
   .company-info{ margin-bottom:6px; }
-  .logo-top{ height:48px; margin-bottom:6px; } /* sem mexer no logo */
+  .logo-top{ height:48px; margin-bottom:6px; }
   .company-info h1{ font-size:15pt; margin:0; color:#1f3b5b; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
-  /* Meta (ajuste 5: alinhar vendedor à data para a esquerda) */
-  .meta{ width:100%; border-collapse:collapse; margin:8px 0; }
+  /* Meta (Data/Vendedor à direita, alinhado) */
+  .meta{ width:100%; border-collapse:collapse; margin:8px 0; table-layout:fixed; }
   .meta td{ padding:2px 4px; vertical-align:top; }
-  .meta .left{ font-size:11pt; font-weight:700; color:#1f3b5b; }
-  .meta .right{ text-align:left; font-size:8.5pt; color:#444; }
-  .meta .right strong{ display:inline-block; width:64px; } /* rótulos alinhados */
+  .meta .left{ font-size:11pt; font-weight:700; color:#1f3b5b; width:65%; }
+  .meta .right{
+    width:35%;
+    text-align:right;
+    font-size:8.5pt; color:#444;
+    white-space:nowrap;
+  }
+  .meta .right strong{ display:inline-block; width:72px; text-align:left; }
 
   /* Títulos de seção */
   .section-title{
@@ -58,16 +63,18 @@
     margin-top:6px;
     background:transparent !important;
   }
-  /* Largura das colunas via COLGROUP (garante alinhamento perfeito) */
   .items-table col.col-desc  { width:80%; }
   .items-table col.col-total { width:20%; }
 
+  /* Transparente para não cobrir o logo */
   .items-table thead th{
-    background:#eaf5fc; color:#1f3b5b;
+    background:transparent !important;
+    color:#1f3b5b;
     padding:6px; font-size:10pt; text-align:left;
     border-bottom:2px solid #cfe5f6;
   }
   .items-table thead th.text-right{ text-align:right; }
+
   .items-table tbody td{
     padding:6px;
     border-bottom:1px solid #e6eaf0;
@@ -85,51 +92,64 @@
   .item-sub{ font-size:8pt; color:#555; }
   .value-cell{ text-align:right; }
 
-  /* Totais (ajuste 3: caixa alinhada ao início da linha azul) */
+  /* Totais (caixa menor e transparente) */
   .totals-container{
     width:100%;
     margin-top:10px;
     display:flex;
-    justify-content:flex-start; /* encosta à esquerda */
+    justify-content:flex-start;
   }
   .summary{
     display:inline-table;
     width:auto;
     border-collapse:collapse;
-    background:#f9fbfe;
+    background:transparent !important;
     border:1px solid #cfe5f6;
-    font-size:9pt;
+    font-size:8.5pt;
     text-align:left;
   }
-  .summary td{ padding:6px 8px; color:#2f4f6a; }
+  .summary td{ padding:4px 6px; color:#2f4f6a; line-height:1.2; }
   .summary .text-right{ text-align:right; font-weight:700; color:#1f3b5b; }
   .summary .total-row td{
-    background:#eaf5fc; border-top:1px solid #cfe5f6;
-    font-weight:700; font-size:11pt;
+    background:transparent !important;
+    border-top:1px solid #cfe5f6;
+    font-weight:700; font-size:10pt;
   }
 
-  /* Observações */
+  /* Pagamento (novo) */
+  .pay-box{
+    margin-top:10px;
+    border:1px solid #cfe5f6;
+    background:transparent !important;
+    padding:6px 8px; color:#2f4f6a; font-size:8.8pt;
+  }
+  .pay-box h3{
+    margin:0 0 6px 0; font-size:11pt; color:#2b5f86; border-bottom:1px solid #cfe5f6; padding-bottom:4px;
+  }
+
+  /* Observações (transparente) */
   .obs-box{
-    background:#f7fbff; border:1px solid #e4effa;
+    background:transparent !important;
+    border:1px solid #e4effa;
     padding:6px 8px; margin-top:6px; color:#2f4f6a;
   }
 
-  /* Rodapé */
+  /* Rodapé (transparente) */
   .pdf-footer{
     margin-top:18px;
     text-align:center; font-size:8pt; color:#666;
     border-top:1px solid #ccc; padding-top:5px;
+    background:transparent !important;
   }
 </style>
 </head>
 <body>
 
-{# ======= Macro de moeda BRL (corrigido) ======= #}
+{# ======= Macro de moeda BRL ======= #}
 {% macro brl(v) -%}
-  {# garante número; se vier string/None, força 0.0 #}
   {%- set n = (v if v is number else (0.0)) -%}
-  {%- set s = "{:,.2f}".format(n) -%}        {# exemplo: 1,234,567.89 #}
-  {%- set s = s.replace(",", "X").replace(".", ",").replace("X", ".") -%} {# vira 1.234.567,89 #}
+  {%- set s = "{:,.2f}".format(n) -%}
+  {%- set s = s.replace(",", "X").replace(".", ",").replace("X", ".") -%}
   R$ {{ s }}
 {%- endmacro %}
 
@@ -168,7 +188,6 @@
 <div class="section-title">Itens do Orçamento</div>
 
 <table class="items-table">
-  <!-- colgroup garante mesma largura para cabeçalho e corpo -->
   <colgroup>
     <col class="col-desc">
     <col class="col-total">
@@ -176,7 +195,7 @@
   <thead>
     <tr>
       <th>Descrição dos Produtos</th>
-      <th class="text-right">Total s/ IPI</th>
+      <th class="text-right">Total sem IPI</th>
     </tr>
   </thead>
   <tbody>
@@ -191,7 +210,7 @@
           <strong>Filme:</strong> {{ item.filme }}
         </div>
         <div class="item-sub">
-          {{ "%.2f"|format(item.quantidade_kg) }} KG × {{ brl(item.valor_kg) }} — IPI {{ "%.2f"|format(item.ipi_item) }}%
+          {{ (item.quantidade_kg | round(0) | int) }} KG × {{ brl(item.valor_kg) }} — IPI {{ "%.2f"|format(item.ipi_item) }}%
         </div>
       </td>
       <td class="value-cell">{{ brl(item.quantidade_kg * item.valor_kg) }}</td>
@@ -200,7 +219,7 @@
   </tbody>
 </table>
 
-<!-- Totais (ajuste 3: alinhado à esquerda) -->
+<!-- Totais -->
 <div class="totals-container">
   <table class="summary">
     <tr>
@@ -217,13 +236,25 @@
     </tr>
     <tr>
       <td>Peso total:</td>
-      <td class="text-right">{{ "%.2f"|format(totais.total_kg) }} KG</td>
+      <td class="text-right">{{ (totais.total_kg | round(0) | int) }} KG</td>
     </tr>
     <tr class="total-row">
       <td>Total NF:</td>
       <td class="text-right">{{ brl(totais.total_nf) }}</td>
     </tr>
   </table>
+</div>
+
+<!-- Pagamento (usando os campos criados em app.py) -->
+<div class="section-title">Pagamento</div>
+<div class="pay-box">
+  {% if pagamento is defined %}
+    <div><strong>Condição de pagamento:</strong> {{ pagamento.condicao }}</div>
+    <div><strong>Parcelas:</strong> {{ pagamento.qtde_parcelas }}× de {{ brl(pagamento.valor_parcela) }}</div>
+    <div><strong>Data de entrega:</strong> {{ pagamento.data_entrega }}</div>
+  {% else %}
+    <div><strong>Condição de pagamento:</strong> —</div>
+  {% endif %}
 </div>
 
 <div class="section-title">Transportadora e Observações</div>
