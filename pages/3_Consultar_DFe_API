@@ -1,0 +1,149 @@
+# pages/3_Consultar_DFe_API.py
+import re, json, requests
+import pandas as pd
+import streamlit as st
+from datetime import date, timedelta
+
+st.set_page_config(page_title="Consultar DF-e (SIEG API)", layout="wide")
+st.title("Consultar DF-e — SIEG API")
+
+BASE_URL = st.secrets.get("sieg_api", {}).get("base_url", "").rstrip("/")
+API_KEY  = st.secrets.get("sieg_api", {}).get("api_key", "")
+CNPJ_REF = re.sub(r"\D", "", st.secrets.get("sieg_api", {}).get("cnpj_padrao", "28631719000140"))[:14] or "28631719000140"
+
+def headers():
+    return {"Authorization": f"Bearer {API_KEY}", "Accept": "application/json"}
+
+def only_digits(s: str) -> str:
+    return re.sub(r"\D", "", str(s or ""))
+
+def brl(x):
+    try: v=float(x or 0)
+    except: v=0.0
+    s=f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {s}"
+
+def endpoint(path: str) -> str:
+    # ajuste este prefixo conforme seu contrato (ex.: /dfe/v1)
+    return f"{BASE_URL}/dfe/v1{path}"
+
+def buscar(params: dict):
+    r = requests.get(endpoint("/documentos"), headers=headers(), params=params, timeout=60)
+    r.raise_for_status()
+    data = r.json()
+    return (data.get("items", data) if isinstance(data, dict) else data) or []
+
+def classificar(item: dict) -> str:
+    em = only_digits((item.get("emitente") or {}).get("cnpj"))
+    de = only_digits((item.get("destinatario") or {}).get("cnpj"))
+    if em == CNPJ_REF: return "Saída"
+    if de == CNPJ_REF: return "Entrada"
+    return "—"
+
+st.caption(f"Empresa de referência para classificar Entrada/Saída: CNPJ {CNPJ_REF}")
+
+# Filtros
+c1, c2, c3 = st.columns(3)
+with c1:
+    cnpj = st.text_input("CNPJ consultado (14 dígitos)", value=CNPJ_REF)
+    cnpj = only_digits(cnpj)[:14]
+with c2:
+    dt_ini = st.date_input("Data inicial", value=date.today() - timedelta(days=30))
+with c3:
+    dt_fim = st.date_input("Data final", value=date.today())
+
+f1, f2, f3 = st.columns(3)
+with f1:
+    modelo = st.selectbox("Modelo", ["Todos", "55 - NFe", "57 - CTe", "58 - MDFe"], index=0)
+with f2:
+    situacao = st.selectbox("Situação", ["Todas", "Autorizada", "Cancelada", "Denegada"], index=0)
+with f3:
+    filtro_tipo = st.selectbox("Tipo", ["Todos", "Entrada", "Saída"], index=0)
+
+if st.button("Buscar documentos", type="primary"):
+    if not (BASE_URL and API_KEY and cnpj):
+        st.error("Preencha base_url, api_key e CNPJ (veja [sieg_api] no secrets.toml).")
+    else:
+        with st.spinner("Consultando SIEG..."):
+            params = {
+                "cnpj": cnpj,
+                "data_ini": dt_ini.strftime("%Y-%m-%d"),
+                "data_fim": dt_fim.strftime("%Y-%m-%d"),
+                "limit": 1000,
+            }
+            if modelo.startswith("55"): params["modelo"]="55"
+            elif modelo.startswith("57"): params["modelo"]="57"
+            elif modelo.startswith("58"): params["modelo"]="58"
+            if situacao != "Todas": params["situacao"]=situacao.lower()
+
+            try:
+                items = buscar(params)
+                for it in items:
+                    it["tipo"] = classificar(it)
+                if filtro_tipo != "Todos":
+                    items = [x for x in items if x.get("tipo")==filtro_tipo]
+                st.session_state["dfe_result"] = items
+                st.success(f"{len(items)} documento(s).")
+            except requests.HTTPError as e:
+                st.error(f"HTTP {e.response.status_code}")
+                st.code((e.response.text or "")[:1000])
+            except Exception as e:
+                st.exception(e)
+
+docs = st.session_state.get("dfe_result", [])
+if docs:
+    df = pd.json_normalize(docs)
+    prefer = ["tipo","chave","modelo","emissao","emitente.nome","emitente.cnpj","destinatario.nome","destinatario.cnpj","situacao","valor.total","serie","numero"]
+    cols = [c for c in prefer if c in df.columns] or list(df.columns)
+    view = df[cols].copy()
+    if "emissao" in view.columns:
+        view["emissao"] = pd.to_datetime(view["emissao"], errors="coerce").dt.strftime("%d/%m/%Y %H:%M").fillna("")
+    for c in ["emitente.cnpj","destinatario.cnpj"]:
+        if c in view.columns: view[c]=view[c].map(only_digits)
+    if "valor.total" in view.columns:
+        view["valor.total"] = pd.to_numeric(view["valor.total"], errors="coerce").fillna(0.0).map(brl)
+
+    st.subheader("Resultado")
+    st.dataframe(view, use_container_width=True, height=420)
+
+    # Exportar CSV
+    st.download_button("Baixar CSV (JSON normalizado)", data=df.to_csv(index=False).encode("utf-8"), file_name="dfe_listagem.csv", mime="text/csv")
+
+    st.markdown("---")
+    st.subheader("Ações por chave")
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        chave = st.text_input("Chave de acesso (44 dígitos)", value=str(df.iloc[0]["chave"]) if "chave" in df.columns and not df.empty else "")
+    with col_b:
+        if st.button("Baixar XML", use_container_width=True):
+            try:
+                r = requests.get(endpoint(f"/documentos/{chave}/xml"), headers=headers(), timeout=60)
+                r.raise_for_status()
+                st.download_button("Salvar XML", r.content, file_name=f"{chave}.xml", mime="application/xml")
+                st.success("XML baixado.")
+            except Exception as e:
+                st.error(f"Falha ao baixar XML: {e}")
+    with col_c:
+        if st.button("DANFE (PDF)", use_container_width=True):
+            try:
+                r = requests.get(endpoint(f"/documentos/{chave}/danfe"), headers=headers(), timeout=60)
+                r.raise_for_status()
+                st.download_button("Salvar DANFE", r.content, file_name=f"{chave}.pdf", mime="application/pdf")
+                st.success("DANFE baixado.")
+            except Exception as e:
+                st.error(f"Falha ao baixar DANFE: {e}")
+
+    st.markdown("### Manifestação do destinatário")
+    evento = st.selectbox("Evento", ["ciencia","confirmacao","desconhecimento","nao_realizada"])
+    justificativa = st.text_input("Justificativa (quando necessário)")
+    if st.button("Enviar Manifestação"):
+        try:
+            payload = {"evento": evento}
+            if justificativa: payload["justificativa"]=justificativa
+            r = requests.post(endpoint(f"/documentos/{chave}/manifestacao"), headers=headers(), json=payload, timeout=60)
+            r.raise_for_status()
+            st.success("Evento enviado.")
+        except Exception as e:
+            st.error(f"Falha na manifestação: {e}")
+else:
+    st.info("Sem resultados. Faça uma busca acima.")
