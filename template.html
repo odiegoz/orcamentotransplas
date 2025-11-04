@@ -196,18 +196,6 @@
   </tr>
 </table>
 
-<!-- Seção Pagamento permanece abaixo, como no seu modelo -->
-<div class="section-title">Pagamento</div>
-<div class="pay-box">
-  {% if pagamento is defined %}
-    <div><strong>Condição de pagamento:</strong> {{ pagamento.condicao }}</div>
-    <div><strong>Parcelas:</strong> {{ pagamento.qtde_parcelas }}× de {{ brl(pagamento.valor_parcela) }}</div>
-    <div><strong>Data de entrega:</strong> {{ pagamento.data_entrega }}</div>
-  {% else %}
-    <div><strong>Condição de pagamento:</strong> —</div>
-  {% endif %}
-</div>
-
 <div class="section-title">Dados do Cliente</div>
 <div class="info-box-simple">
   <div><strong>Razão Social:</strong> {{ cliente.razao_social }}</div>
@@ -279,6 +267,18 @@
       <td class="text-right">{{ brl(totais.total_nf) }}</td>
     </tr>
   </table>
+</div>
+
+<!-- Seção Pagamento permanece abaixo, como no seu modelo -->
+<div class="section-title">Pagamento</div>
+<div class="pay-box">
+  {% if pagamento is defined %}
+    <div><strong>Condição de pagamento:</strong> {{ pagamento.condicao }}</div>
+    <div><strong>Parcelas:</strong> {{ pagamento.qtde_parcelas }}× de {{ brl(pagamento.valor_parcela) }}</div>
+    <div><strong>Data de entrega:</strong> {{ pagamento.data_entrega }}</div>
+  {% else %}
+    <div><strong>Condição de pagamento:</strong> —</div>
+  {% endif %}
 </div>
 
 <div class="section-title">Transportadora e Observações</div>
