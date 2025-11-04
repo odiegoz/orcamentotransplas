@@ -30,23 +30,23 @@
   .company-info h1{ font-size:15pt; margin:0; color:#1f3b5b; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
-  /* Meta (Data/Vendedor/Condição/Parcelas/Entrega à direita, alinhados em 2 colunas) */
+  /* Meta (Data/Vendedor à direita) */
   .meta{ width:100%; border-collapse:collapse; margin:8px 0; table-layout:fixed; }
   .meta td{ padding:2px 4px; vertical-align:top; }
   .meta .left{ font-size:11pt; font-weight:700; color:#1f3b5b; width:65%; }
   .meta .right{
     width:35%;
-    text-align:right;         /* ancora o bloco na direita */
+    text-align:right;   /* ancora o bloco à direita */
     font-size:8.5pt; color:#444;
     white-space:nowrap;
   }
 
-  /* Mini-tabela para rótulo/valor alinhados perfeitamente */
+  /* Mini-tabela para alinhar rótulo/valor de Data/Vendedor */
   .meta-inner{ width:100%; border-collapse:collapse; margin:0; }
   .meta-inner td{ padding:1px 0; font-size:8.8pt; }
   .meta-inner .label{
     text-align:right;
-    width:90px;              /* ajuste fino da largura dos rótulos */
+    width:90px;        /* ajuste fino da largura do rótulo */
     font-weight:700;
     color:#1f3b5b;
     white-space:nowrap;
@@ -132,6 +132,17 @@
     font-weight:700; font-size:10pt;
   }
 
+  /* Pagamento (seção separada, como você já usa) */
+  .pay-box{
+    margin-top:10px;
+    border:1px solid #cfe5f6;
+    background:transparent !important;
+    padding:6px 8px; color:#2f4f6a; font-size:8.8pt;
+  }
+  .pay-box h3{
+    margin:0 0 6px 0; font-size:11pt; color:#2b5f86; border-bottom:1px solid #cfe5f6; padding-bottom:4px;
+  }
+
   /* Observações (transparente) */
   .obs-box{
     background:transparent !important;
@@ -180,24 +191,22 @@
           <td class="label">Vendedor:</td>
           <td class="value">{{ vendedor }}</td>
         </tr>
-        {% if pagamento is defined %}
-        <tr>
-          <td class="label">Cond. Pagto:</td>
-          <td class="value">{{ pagamento.condicao }}</td>
-        </tr>
-        <tr>
-          <td class="label">Parcelas:</td>
-          <td class="value">{{ pagamento.qtde_parcelas }}× de {{ brl(pagamento.valor_parcela) }}</td>
-        </tr>
-        <tr>
-          <td class="label">Entrega:</td>
-          <td class="value">{{ pagamento.data_entrega }}</td>
-        </tr>
-        {% endif %}
       </table>
     </td>
   </tr>
 </table>
+
+<!-- Seção Pagamento permanece abaixo, como no seu modelo -->
+<div class="section-title">Pagamento</div>
+<div class="pay-box">
+  {% if pagamento is defined %}
+    <div><strong>Condição de pagamento:</strong> {{ pagamento.condicao }}</div>
+    <div><strong>Parcelas:</strong> {{ pagamento.qtde_parcelas }}× de {{ brl(pagamento.valor_parcela) }}</div>
+    <div><strong>Data de entrega:</strong> {{ pagamento.data_entrega }}</div>
+  {% else %}
+    <div><strong>Condição de pagamento:</strong> —</div>
+  {% endif %}
+</div>
 
 <div class="section-title">Dados do Cliente</div>
 <div class="info-box-simple">
@@ -286,4 +295,4 @@
 </div>
 
 </body>
-</html> 
+</html>
