@@ -4,10 +4,6 @@
 <meta charset="utf-8">
 <title>Orçamento</title>
 <style>
-  /* Paleta fixa */
-  /* azul escuro: #2b5f86 | texto: #1f3b5b | borda: #cfe5f6 | caixa: #eaf5fc */
-
-  /* Marca d’água no fundo da página */
   html{
     background-image:url("{{ watermark_datauri }}");
     background-repeat:no-repeat;
@@ -15,7 +11,6 @@
     background-size:70%;
   }
 
-  /* Página e corpo */
   @page{ size:A4 portrait; margin:0; }
   body{
     font-family:Arial, Helvetica, sans-serif;
@@ -24,41 +19,39 @@
     background:transparent;
   }
 
-  /* Cabeçalho */
   .company-info{ margin-bottom:6px; }
   .logo-top{ height:48px; margin-bottom:6px; }
   .company-info h1{ font-size:15pt; margin:0; color:#1f3b5b; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
-  /* Meta (Data/Vendedor à direita) */
+  /* META */
   .meta{ width:100%; border-collapse:collapse; margin:8px 0; table-layout:fixed; }
   .meta td{ padding:2px 4px; vertical-align:top; }
   .meta .left{ font-size:11pt; font-weight:700; color:#1f3b5b; width:65%; }
   .meta .right{
     width:35%;
-    text-align:right;   /* ancora o bloco à direita */
-    font-size:8.5pt; color:#444;
+    text-align:right;
     white-space:nowrap;
   }
 
-  /* Mini-tabela para alinhar rótulo/valor de Data/Vendedor */
-  .meta-inner{ width:100%; border-collapse:collapse; margin:0; }
-  .meta-inner td{ padding:1px 0; font-size:8.8pt; }
-  .meta-inner .label{
+  /* ALINHAMENTO: Data / Vendedor */
+  .meta-rows{ display:inline-block; }
+  .meta-rows .row{
+    display:flex;
+    justify-content:flex-end;
+    gap:6px;
+  }
+  .meta-rows .label{
+    width:90px;
     text-align:right;
-    width:90px;        /* ajuste fino da largura do rótulo */
     font-weight:700;
     color:#1f3b5b;
-    white-space:nowrap;
   }
-  .meta-inner .value{
-    text-align:left;
-    padding-left:6px;
+  .meta-rows .value{
     white-space:nowrap;
     color:#444;
   }
 
-  /* Títulos de seção */
   .section-title{
     font-weight:700; font-size:12pt;
     border-bottom:2px solid #2b5f86;
@@ -66,15 +59,12 @@
     padding-bottom:4px; color:#2b5f86;
   }
 
-  /* Blocos simples */
   .info-box-simple div{ padding:2px 0; font-size:8.5pt; }
   .info-box-simple strong{ width:130px; display:inline-block; color:#1f3b5b; }
 
-  /* Tabela de Itens */
   .items-table{
     width:100%;
     border-collapse:separate;
-    border-spacing:0;
     table-layout:fixed;
     margin-top:6px;
     background:transparent !important;
@@ -82,49 +72,33 @@
   .items-table col.col-desc  { width:80%; }
   .items-table col.col-total { width:20%; }
 
-  /* Transparente para não cobrir o logo */
   .items-table thead th{
     background:transparent !important;
     color:#1f3b5b;
-    padding:6px; font-size:10pt; text-align:left;
+    padding:6px; font-size:10pt;
     border-bottom:2px solid #cfe5f6;
+    text-align:left;
   }
   .items-table thead th.text-right{ text-align:right; }
 
   .items-table tbody td{
     padding:6px;
     border-bottom:1px solid #e6eaf0;
-    font-size:8.8pt;
     background:transparent !important;
-  }
-  .items-table tbody,
-  .items-table tbody tr,
-  .items-table tbody td,
-  .items-table tbody *{
-    background:transparent !important;
-    background-color:transparent !important;
   }
   .item-desc{ font-weight:700; margin-bottom:3px; color:#1f3b5b; }
   .item-sub{ font-size:8pt; color:#555; }
   .value-cell{ text-align:right; }
 
-  /* Totais (caixa menor e transparente) */
-  .totals-container{
-    width:100%;
-    margin-top:10px;
-    display:flex;
-    justify-content:flex-start;
-  }
+  .totals-container{ margin-top:10px; display:flex; justify-content:flex-start; }
   .summary{
     display:inline-table;
-    width:auto;
     border-collapse:collapse;
-    background:transparent !important;
     border:1px solid #cfe5f6;
+    background:transparent !important;
     font-size:8.5pt;
-    text-align:left;
   }
-  .summary td{ padding:4px 6px; color:#2f4f6a; line-height:1.2; }
+  .summary td{ padding:4px 6px; color:#2f4f6a; }
   .summary .text-right{ text-align:right; font-weight:700; color:#1f3b5b; }
   .summary .total-row td{
     background:transparent !important;
@@ -132,28 +106,21 @@
     font-weight:700; font-size:10pt;
   }
 
-  /* Pagamento (seção separada, como você já usa) */
   .pay-box{
     margin-top:10px;
     border:1px solid #cfe5f6;
     background:transparent !important;
     padding:6px 8px; color:#2f4f6a; font-size:8.8pt;
   }
-  .pay-box h3{
-    margin:0 0 6px 0; font-size:11pt; color:#2b5f86; border-bottom:1px solid #cfe5f6; padding-bottom:4px;
-  }
 
-  /* Observações (transparente) */
   .obs-box{
     background:transparent !important;
     border:1px solid #e4effa;
     padding:6px 8px; margin-top:6px; color:#2f4f6a;
   }
 
-  /* Rodapé (transparente) */
   .pdf-footer{
-    margin-top:18px;
-    text-align:center; font-size:8pt; color:#666;
+    margin-top:18px; text-align:center; font-size:8pt; color:#666;
     border-top:1px solid #ccc; padding-top:5px;
     background:transparent !important;
   }
@@ -161,9 +128,8 @@
 </head>
 <body>
 
-{# ======= Macro de moeda BRL ======= #}
 {% macro brl(v) -%}
-  {%- set n = (v if v is number else (0.0)) -%}
+  {%- set n = (v if v is number else 0.0) -%}
   {%- set s = "{:,.2f}".format(n) -%}
   {%- set s = s.replace(",", "X").replace(".", ",").replace("X", ".") -%}
   R$ {{ s }}
@@ -182,16 +148,16 @@
   <tr>
     <td class="left">Orçamento Nº: {{ orcamento_numero }}</td>
     <td class="right">
-      <table class="meta-inner">
-        <tr>
-          <td class="label">Data:</td>
-          <td class="value">{{ data_emissao }}</td>
-        </tr>
-        <tr>
-          <td class="label">Vendedor:</td>
-          <td class="value">{{ vendedor }}</td>
-        </tr>
-      </table>
+      <div class="meta-rows">
+        <div class="row">
+          <span class="label">Data:</span>
+          <span class="value">{{ data_emissao }}</span>
+        </div>
+        <div class="row">
+          <span class="label">Vendedor:</span>
+          <span class="value">{{ vendedor }}</span>
+        </div>
+      </div>
     </td>
   </tr>
 </table>
@@ -212,10 +178,7 @@
 <div class="section-title">Itens do Orçamento</div>
 
 <table class="items-table">
-  <colgroup>
-    <col class="col-desc">
-    <col class="col-total">
-  </colgroup>
+  <colgroup><col class="col-desc"><col class="col-total"></colgroup>
   <thead>
     <tr>
       <th>Descrição dos Produtos</th>
@@ -243,42 +206,22 @@
   </tbody>
 </table>
 
-<!-- Totais -->
 <div class="totals-container">
   <table class="summary">
-    <tr>
-      <td>Base Cálculo ICMS:</td>
-      <td class="text-right">{{ brl(totais.base_calculo_icms) }}</td>
-    </tr>
-    <tr>
-      <td>ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td>
-      <td class="text-right">(informativo)</td>
-    </tr>
-    <tr>
-      <td>Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td>
-      <td class="text-right">{{ brl(totais.valor_ipi) }}</td>
-    </tr>
-    <tr>
-      <td>Peso total:</td>
-      <td class="text-right">{{ (totais.total_kg | round(0) | int) }} KG</td>
-    </tr>
-    <tr class="total-row">
-      <td>Total NF:</td>
-      <td class="text-right">{{ brl(totais.total_nf) }}</td>
-    </tr>
+    <tr><td>Base Cálculo ICMS:</td><td class="text-right">{{ brl(totais.base_calculo_icms) }}</td></tr>
+    <tr><td>ICMS ({{ "%.2f"|format(totais.icms_perc) }}%):</td><td class="text-right">(informativo)</td></tr>
+    <tr><td>Valor IPI ({{ "%.2f"|format(totais.ipi_perc) }}%):</td><td class="text-right">{{ brl(totais.valor_ipi) }}</td></tr>
+    <tr><td>Peso total:</td><td class="text-right">{{ (totais.total_kg | round(0) | int) }} KG</td></tr>
+    <tr class="total-row"><td>Total NF:</td><td class="text-right">{{ brl(totais.total_nf) }}</td></tr>
   </table>
 </div>
 
-<!-- Seção Pagamento permanece abaixo, como no seu modelo -->
+<!-- PAGAMENTO AQUI (correto) -->
 <div class="section-title">Pagamento</div>
 <div class="pay-box">
-  {% if pagamento is defined %}
-    <div><strong>Condição de pagamento:</strong> {{ pagamento.condicao }}</div>
-    <div><strong>Parcelas:</strong> {{ pagamento.qtde_parcelas }}× de {{ brl(pagamento.valor_parcela) }}</div>
-    <div><strong>Data de entrega:</strong> {{ pagamento.data_entrega }}</div>
-  {% else %}
-    <div><strong>Condição de pagamento:</strong> —</div>
-  {% endif %}
+  <div><strong>Condição de pagamento:</strong> {{ pagamento.condicao }}</div>
+  <div><strong>Parcelas:</strong> {{ pagamento.qtde_parcelas }}× de {{ brl(pagamento.valor_parcela) }}</div>
+  <div><strong>Data de entrega:</strong> {{ pagamento.data_entrega }}</div>
 </div>
 
 <div class="section-title">Transportadora e Observações</div>
