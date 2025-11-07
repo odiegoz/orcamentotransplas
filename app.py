@@ -414,7 +414,13 @@ with col_dados_gerais:
     st.subheader("Condições e Entrega")
     pagamento_condicao = st.text_input("Cond. Pagamento", value="28/35/42 ddl")
     pagamento_qtde_parcelas = st.number_input("Quantidade de Parcelas", min_value=1, value=3, step=1)
-    pagamento_data_entrega = st.date_input("Data de Entrega", value=date.today())
+
+    # ====== ALTERAÇÃO: permitir Data de Entrega não obrigatória ======
+    sem_data_entrega = st.checkbox("Sem data de entrega definida", value=False)
+    if sem_data_entrega:
+        pagamento_data_entrega = None
+    else:
+        pagamento_data_entrega = st.date_input("Data de Entrega", value=date.today())
 
     st.subheader("Impostos")
     impostos_icms = st.number_input("ICMS (%)", min_value=0.0, value=18.0, format="%.2f")
@@ -549,7 +555,8 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 'pagamento': {
                     'condicao': pagamento_condicao,
                     'qtde_parcelas': qtde_parcelas_int,
-                    'data_entrega': pagamento_data_entrega.strftime('%d/%m/%Y'),
+                    # ====== ALTERAÇÃO: caso não tenha data, envia string vazia ======
+                    'data_entrega': pagamento_data_entrega.strftime('%d/%m/%Y') if pagamento_data_entrega else "",
                     'valor_parcela': valor_parcela
                 },
                 'totais': {
