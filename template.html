@@ -24,7 +24,6 @@
   .company-info h1{ font-size:15pt; margin:0; color:#1f3b5b; }
   .company-info p{ margin:2px 0; font-size:8.5pt; color:#333; }
 
-  /* META */
   .meta{ width:100%; border-collapse:collapse; margin:8px 0; table-layout:fixed; }
   .meta td{ padding:2px 4px; vertical-align:top; }
   .meta .left{ font-size:11pt; font-weight:700; color:#1f3b5b; width:65%; }
@@ -198,12 +197,15 @@
   </table>
 </div>
 
-<!-- PAGAMENTO NO LOCAL CORRETO -->
 <div class="section-title">Pagamento</div>
 <div class="pay-box">
   <div><strong>Condição de pagamento:</strong> {{ pagamento.condicao }}</div>
   <div><strong>Parcelas:</strong> {{ pagamento.qtde_parcelas }}× de {{ brl(pagamento.valor_parcela) }}</div>
+  {% if pagamento.data_entrega %}
+  {% if pagamento.data_entrega %}
   <div><strong>Data de entrega:</strong> {{ pagamento.data_entrega }}</div>
+{% endif %}
+  {% endif %}
 </div>
 
 <div class="section-title">Transportadora e Observações</div>
