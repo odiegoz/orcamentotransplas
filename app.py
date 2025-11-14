@@ -73,11 +73,13 @@ def encode_image_b64(path: str | Path) -> str | None:
         return None
     return base64.b64encode(p.read_bytes()).decode("utf-8")
 
+
 def to_data_uri(path: Path | None) -> str | None:
     if not path or not path.exists():
         return None
     mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
+
 
 def find_watermark_path() -> Path | None:
     candidates = [
@@ -178,11 +180,13 @@ def carregar_aba(aba_nome, colunas_esperadas):
         traceback.print_exc()
         return pd.DataFrame(columns=colunas_esperadas)
 
+
 def get_all_clients():
     df = carregar_aba("Clientes", COLUNAS_CLIENTES)
     if df.empty:
         return []
     return df.to_dict('records')
+
 
 def get_client_by_id(client_id):
     df = carregar_aba("Clientes", COLUNAS_CLIENTES)
@@ -192,6 +196,7 @@ def get_client_by_id(client_id):
     if not cliente_df.empty:
         return cliente_df.to_dict('records')[0]
     return None
+
 
 def add_client(data_dict):
     try:
@@ -241,11 +246,13 @@ def add_client(data_dict):
         st.exception(e)
         return False
 
+
 def get_all_products():
     df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
     if df.empty:
         return []
     return df.to_dict('records')
+
 
 def get_product_by_id(product_id):
     df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
@@ -255,6 +262,7 @@ def get_product_by_id(product_id):
     if not produto_df.empty:
         return produto_df.to_dict('records')[0]
     return None
+
 
 def add_product(data_dict):
     try:
@@ -329,7 +337,7 @@ try:
         if 'cliente_id' not in st.session_state or st.session_state.cliente_id != cliente_id:
             st.session_state.cliente_id = cliente_id
             st.session_state.dados_cliente = get_client_by_id(cliente_id)
-            st.rerun()
+            st.experimental_rerun()
 
     with st.sidebar.expander("➕ Adicionar Novo Cliente", expanded=False):
         with st.form("new_client_form", clear_on_submit=True):
@@ -349,7 +357,7 @@ try:
                 else:
                     if add_client(new_cliente_data):
                         st.sidebar.success("Cliente salvo!")
-                        st.rerun()
+                        st.experimental_rerun()
 except Exception as e:
     st.sidebar.error(f"Erro ao carregar clientes: {e}")
     traceback.print_exc()
@@ -377,7 +385,7 @@ try:
                 else:
                     if add_product(new_product_data):
                         st.sidebar.success("Produto salvo!")
-                        st.rerun()
+                        st.experimental_rerun()
 except Exception as e:
     st.sidebar.error(f"Erro nas operações de produto: {e}")
     traceback.print_exc()
@@ -438,6 +446,9 @@ with col_dados_gerais:
 if 'itens' not in st.session_state:
     st.session_state.itens = []
 
+if 'editing_item' not in st.session_state:
+    st.session_state.editing_item = None
+
 with col_itens:
     st.subheader("Itens do Orçamento")
 
@@ -460,6 +471,44 @@ with col_itens:
         st.error(f"Erro ao carregar produtos do BD: {e}")
         produto_default = {}
 
+    # Formulário de edição (se estiver editando um item)
+    editing_idx = st.session_state.get('editing_item')
+    if editing_idx is not None:
+        try:
+            item = st.session_state.itens[editing_idx]
+        except Exception:
+            st.session_state.editing_item = None
+            item = None
+
+        if item:
+            with st.form(key=f"edit_item_form_{editing_idx}"):
+                st.write(f"Editando item {editing_idx+1}")
+                descricao_e = st.text_input("Descrição", value=item['descricao'])
+                filme_e = st.text_input("Filme", value=item.get('filme', 'Não'))
+                cor_codigo_e = st.text_input("Cor-Código", value=item.get('cor_codigo', 'Branco Tricamada'))
+                acabamento_e = st.text_input("Acabamento", value=item.get('acabamento', 'BM'))
+                medida_e = st.text_input("Medida", value=item.get('medida', '2000x1000x0,50mm'))
+                quantidade_e = st.number_input("Qtd (KG)", value=item['quantidade_kg'], min_value=0.01, format="%.2f")
+                valor_kg_e = st.number_input("Valor (KG)", value=item['valor_kg'], min_value=0.01, format="%.2f")
+                save = st.form_submit_button("Salvar Alterações")
+                cancelar = st.form_submit_button("Cancelar Edição")
+                if save:
+                    st.session_state.itens[editing_idx].update({
+                        'descricao': descricao_e,
+                        'filme': filme_e,
+                        'cor_codigo': cor_codigo_e,
+                        'acabamento': acabamento_e,
+                        'medida': medida_e,
+                        'quantidade_kg': float(quantidade_e),
+                        'valor_kg': float(valor_kg_e)
+                    })
+                    st.session_state.editing_item = None
+                    st.experimental_rerun()
+                if cancelar:
+                    st.session_state.editing_item = None
+                    st.experimental_rerun()
+
+    # Formulário para adicionar novo item
     with st.form(key="add_item_form", clear_on_submit=True):
         st.write("Adicionar novo item:")
         item_cols = st.columns([3, 1, 2, 1, 2])
@@ -493,93 +542,131 @@ with col_itens:
                     'quantidade_kg': float(quantidade_kg), 'valor_kg': float(valor_kg),
                     'ipi_item': float(impostos_ipi)
                 })
-                st.rerun()
+                st.experimental_rerun()
 
+    # Exibição dos itens com ações individuais
     if st.session_state.itens:
         st.write("Itens adicionados:")
         total_preview = sum(item['quantidade_kg'] * item['valor_kg'] for item in st.session_state.itens)
         for i, item in enumerate(st.session_state.itens):
             subtotal = item['quantidade_kg'] * item['valor_kg']
-            st.text(f"{i+1}. {item['descricao']} ({item['medida']}) - {item['quantidade_kg']:.2f} KG x R${item['valor_kg']:.2f} = R${subtotal:,.2f}")
+            with st.expander(f"{i+1}. {item['descricao']} ({item['medida']}) - {item['quantidade_kg']:.2f} KG x R${item['valor_kg']:.2f} = R${subtotal:,.2f}"):
+                st.write(f"Medida: {item['medida']}")
+                st.write(f"Valor KG: R$ {item['valor_kg']:.2f}")
+                st.write(f"IPI item: {item.get('ipi_item', 0)}%")
+
+                col_a, col_b = st.columns([1, 1])
+                if col_a.button("Remover", key=f"remover_{i}"):
+                    st.session_state.itens.pop(i)
+                    st.experimental_rerun()
+                if col_b.button("Editar", key=f"editar_{i}"):
+                    st.session_state.editing_item = i
+                    st.experimental_rerun()
+
         st.markdown(f"**Total das Mercadorias: R$ {total_preview:,.2f}**")
 
         if st.button("Limpar Itens"):
             st.session_state.itens = []
-            st.rerun()
+            st.experimental_rerun()
 
 st.markdown("---")
 
 # ------------------------------------------------------------
-# GERAÇÃO DO PDF
+# VALIDAÇÃO PRÉ-GERAÇÃO
+# ------------------------------------------------------------
+def validar_dados_para_pdf(dados):
+    erros = []
+    if not dados['cliente'].get('razao_social'):
+        erros.append("Razão social do cliente vazia.")
+    if not dados['itens']:
+        erros.append("Nenhum item adicionado.")
+    for idx, it in enumerate(dados['itens']):
+        if it.get('quantidade_kg', 0) <= 0:
+            erros.append(f"Item {idx+1}: quantidade inválida.")
+        if it.get('valor_kg', 0) <= 0:
+            erros.append(f"Item {idx+1}: valor inválido.")
+    return erros
+
+# ------------------------------------------------------------
+# GERAÇÃO DO PDF (tratamento de erro sem apagar estado)
 # ------------------------------------------------------------
 if st.button("Gerar PDF do Orçamento", type="primary"):
     if not cliente['razao_social'] or not st.session_state.itens:
         st.error("Preencha, no mínimo, a Razão Social do cliente e adicione pelo menos um item.")
     else:
         with st.spinner("Gerando o arquivo PDF..."):
+            try:
+                # cálculos
+                valor_mercadoria = sum(float(item['quantidade_kg']) * float(item['valor_kg']) for item in st.session_state.itens)
+                ipi_percent = float(impostos_ipi)
+                icms_percent = float(impostos_icms)
+                qtde_parcelas_int = int(pagamento_qtde_parcelas)
 
-            valor_mercadoria = sum(float(item['quantidade_kg']) * float(item['valor_kg']) for item in st.session_state.itens)
-            ipi_percent = float(impostos_ipi)
-            icms_percent = float(impostos_icms)
-            qtde_parcelas_int = int(pagamento_qtde_parcelas)
+                valor_ipi = valor_mercadoria * (ipi_percent / 100.0)
+                total_nf = valor_mercadoria + valor_ipi
+                valor_parcela = total_nf / qtde_parcelas_int if qtde_parcelas_int > 0 else 0
 
-            valor_ipi = valor_mercadoria * (ipi_percent / 100.0)
-            total_nf = valor_mercadoria + valor_ipi
-            valor_parcela = total_nf / qtde_parcelas_int if qtde_parcelas_int > 0 else 0
+                dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
+                hint = dados_empresa.get('logo_path', '')
+                logo_path_obj = find_logo_path_from_hint(empresa_selecionada_nome, hint)
+                if logo_path_obj:
+                    mime = "image/png" if logo_path_obj.suffix.lower() == ".png" else "image/jpeg"
+                    dados_empresa['logo_base64'] = f"data:{mime};base64," + encode_image_b64(logo_path_obj)
+                else:
+                    dados_empresa['logo_base64'] = None
 
-            dados_empresa = EMPRESAS[empresa_selecionada_nome].copy()
+                wm_path = find_watermark_path()
+                watermark_datauri = to_data_uri(wm_path) if wm_path else ''
 
-            # === LOGO: encontra arquivo real (png/jpg) e monta Data URI ===
-            hint = dados_empresa.get('logo_path', '')
-            logo_path_obj = find_logo_path_from_hint(empresa_selecionada_nome, hint)
-            if logo_path_obj:
-                mime = "image/png" if logo_path_obj.suffix.lower() == ".png" else "image/jpeg"
-                dados_empresa['logo_base64'] = f"data:{mime};base64," + encode_image_b64(logo_path_obj)
-            else:
-                dados_empresa['logo_base64'] = None
-                st.warning(f"Logo não encontrado (procurei por {hint} e variações em pastas padrão). O PDF sairá sem logo.")
+                dados = {
+                    'empresa': dados_empresa,
+                    'orcamento_numero': orcamento_numero,
+                    'data_emissao': date.today().strftime('%d/%m/%Y'),
+                    'vendedor': vendedor,
+                    'cliente': cliente,
+                    'itens': st.session_state.itens,
+                    'pagamento': {
+                        'condicao': pagamento_condicao,
+                        'qtde_parcelas': qtde_parcelas_int,
+                        'data_entrega': pagamento_data_entrega.strftime('%d/%m/%Y') if pagamento_data_entrega else "",
+                        'valor_parcela': valor_parcela
+                    },
+                    'totais': {
+                        'base_calculo_icms': valor_mercadoria, 'icms_perc': icms_percent,
+                        'valor_mercadoria': valor_mercadoria, 'ipi_perc': ipi_percent,
+                        'valor_ipi': valor_ipi, 'total_nf': total_nf,
+                        'total_kg': sum(float(item['quantidade_kg']) for item in st.session_state.itens)
+                    },
+                    'transportadora': transportadora,
+                    'observacoes': observacoes,
+                    'watermark_datauri': watermark_datauri,
+                }
 
-            # Marca d'água
-            wm_path = find_watermark_path()
-            watermark_datauri = to_data_uri(wm_path) if wm_path else ''
-            if not watermark_datauri:
-                st.warning("Não encontrei 'watermark.png'. O PDF sairá sem marca d’água.")
+                # validação antes de gerar
+                erros = validar_dados_para_pdf(dados)
+                if erros:
+                    for e in erros:
+                        st.error(e)
+                    st.warning("Corrija os erros acima antes de gerar o PDF.")
+                else:
+                    nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
+                    try:
+                        pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=True)
+                    except Exception as e:
+                        st.error("Erro ao gerar o PDF (na função criar_pdf). Veja detalhes abaixo.")
+                        st.exception(e)
+                        pdf_bytes = None
 
-            dados = {
-                'empresa': dados_empresa,
-                'orcamento_numero': orcamento_numero,
-                'data_emissao': date.today().strftime('%d/%m/%Y'),
-                'vendedor': vendedor,
-                'cliente': cliente,
-                'itens': st.session_state.itens,
-                'pagamento': {
-                    'condicao': pagamento_condicao,
-                    'qtde_parcelas': qtde_parcelas_int,
-                    # ====== ALTERAÇÃO: caso não tenha data, envia string vazia ======
-                    'data_entrega': pagamento_data_entrega.strftime('%d/%m/%Y') if pagamento_data_entrega else "",
-                    'valor_parcela': valor_parcela
-                },
-                'totais': {
-                    'base_calculo_icms': valor_mercadoria, 'icms_perc': icms_percent,
-                    'valor_mercadoria': valor_mercadoria, 'ipi_perc': ipi_percent,
-                    'valor_ipi': valor_ipi, 'total_nf': total_nf,
-                    'total_kg': sum(float(item['quantidade_kg']) for item in st.session_state.itens)
-                },
-                'transportadora': transportadora,
-                'observacoes': observacoes,
-                'watermark_datauri': watermark_datauri,
-            }
+                    if pdf_bytes:
+                        st.success(f"PDF '{nome_arquivo_pdf}' gerado com sucesso!")
+                        st.download_button(
+                            label="Clique aqui para baixar o PDF",
+                            data=pdf_bytes,
+                            file_name=nome_arquivo_pdf,
+                            mime="application/pdf"
+                        )
 
-            nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
-            pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=True)
-
-            if pdf_bytes:
-                st.success(f"PDF '{nome_arquivo_pdf}' gerado com sucesso!")
-                st.download_button(
-                    label="Clique aqui para baixar o PDF",
-                    data=pdf_bytes,
-                    file_name=nome_arquivo_pdf,
-                    mime="application/pdf"
-                )
-            else:
-                st.error("Ocorreu um erro ao gerar o PDF. Verifique os logs.")
+            except Exception as e:
+                # Qualquer erro de preparo aqui NÃO deve apagar st.session_state.itens
+                st.error("Ocorreu um erro ao preparar o PDF. Os dados não foram apagados — corrija e tente novamente.")
+                st.exception(e)
