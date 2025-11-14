@@ -13,6 +13,36 @@ import pandas as pd
 
 from gerador_funcoes import criar_pdf
 
+# ---- Safe rerun helper (fix for AttributeError on st.experimental_rerun) ----
+def safe_rerun():
+    """
+    Tenta chamar st.experimental_rerun() de forma segura.
+    Se não estiver disponível ou causar erro, define um flag em session_state
+    e para a execução com st.stop() — garantindo que a app será recarregada
+    na próxima interação sem levantar AttributeError.
+    """
+    try:
+        if hasattr(st, "experimental_rerun"):
+            st.experimental_rerun()
+        else:
+            st.session_state['_needs_rerun'] = True
+            st.stop()
+    except Exception:
+        st.session_state['_needs_rerun'] = True
+        st.stop()
+
+# Se um fallback anterior solicitou rerun, tentamos fazê-lo agora (uma vez).
+if st.session_state.get("_needs_rerun"):
+    st.session_state.pop("_needs_rerun", None)
+    try:
+        if hasattr(st, "experimental_rerun"):
+            st.experimental_rerun()
+        else:
+            st.stop()
+    except Exception:
+        st.stop()
+# ---------------------------------------------------------------------------
+
 # ------------------------------------------------------------
 # CONFIG & TÍTULO
 # ------------------------------------------------------------
@@ -73,13 +103,11 @@ def encode_image_b64(path: str | Path) -> str | None:
         return None
     return base64.b64encode(p.read_bytes()).decode("utf-8")
 
-
 def to_data_uri(path: Path | None) -> str | None:
     if not path or not path.exists():
         return None
     mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
-
 
 def find_watermark_path() -> Path | None:
     candidates = [
@@ -180,13 +208,11 @@ def carregar_aba(aba_nome, colunas_esperadas):
         traceback.print_exc()
         return pd.DataFrame(columns=colunas_esperadas)
 
-
 def get_all_clients():
     df = carregar_aba("Clientes", COLUNAS_CLIENTES)
     if df.empty:
         return []
     return df.to_dict('records')
-
 
 def get_client_by_id(client_id):
     df = carregar_aba("Clientes", COLUNAS_CLIENTES)
@@ -196,7 +222,6 @@ def get_client_by_id(client_id):
     if not cliente_df.empty:
         return cliente_df.to_dict('records')[0]
     return None
-
 
 def add_client(data_dict):
     try:
@@ -246,13 +271,11 @@ def add_client(data_dict):
         st.exception(e)
         return False
 
-
 def get_all_products():
     df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
     if df.empty:
         return []
     return df.to_dict('records')
-
 
 def get_product_by_id(product_id):
     df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
@@ -262,7 +285,6 @@ def get_product_by_id(product_id):
     if not produto_df.empty:
         return produto_df.to_dict('records')[0]
     return None
-
 
 def add_product(data_dict):
     try:
@@ -337,7 +359,7 @@ try:
         if 'cliente_id' not in st.session_state or st.session_state.cliente_id != cliente_id:
             st.session_state.cliente_id = cliente_id
             st.session_state.dados_cliente = get_client_by_id(cliente_id)
-            st.experimental_rerun()
+            safe_rerun()
 
     with st.sidebar.expander("➕ Adicionar Novo Cliente", expanded=False):
         with st.form("new_client_form", clear_on_submit=True):
@@ -357,7 +379,7 @@ try:
                 else:
                     if add_client(new_cliente_data):
                         st.sidebar.success("Cliente salvo!")
-                        st.experimental_rerun()
+                        safe_rerun()
 except Exception as e:
     st.sidebar.error(f"Erro ao carregar clientes: {e}")
     traceback.print_exc()
@@ -385,7 +407,7 @@ try:
                 else:
                     if add_product(new_product_data):
                         st.sidebar.success("Produto salvo!")
-                        st.experimental_rerun()
+                        safe_rerun()
 except Exception as e:
     st.sidebar.error(f"Erro nas operações de produto: {e}")
     traceback.print_exc()
@@ -503,10 +525,10 @@ with col_itens:
                         'valor_kg': float(valor_kg_e)
                     })
                     st.session_state.editing_item = None
-                    st.experimental_rerun()
+                    safe_rerun()
                 if cancelar:
                     st.session_state.editing_item = None
-                    st.experimental_rerun()
+                    safe_rerun()
 
     # Formulário para adicionar novo item
     with st.form(key="add_item_form", clear_on_submit=True):
@@ -542,7 +564,7 @@ with col_itens:
                     'quantidade_kg': float(quantidade_kg), 'valor_kg': float(valor_kg),
                     'ipi_item': float(impostos_ipi)
                 })
-                st.experimental_rerun()
+                safe_rerun()
 
     # Exibição dos itens com ações individuais
     if st.session_state.itens:
@@ -558,16 +580,16 @@ with col_itens:
                 col_a, col_b = st.columns([1, 1])
                 if col_a.button("Remover", key=f"remover_{i}"):
                     st.session_state.itens.pop(i)
-                    st.experimental_rerun()
+                    safe_rerun()
                 if col_b.button("Editar", key=f"editar_{i}"):
                     st.session_state.editing_item = i
-                    st.experimental_rerun()
+                    safe_rerun()
 
         st.markdown(f"**Total das Mercadorias: R$ {total_preview:,.2f}**")
 
         if st.button("Limpar Itens"):
             st.session_state.itens = []
-            st.experimental_rerun()
+            safe_rerun()
 
 st.markdown("---")
 
