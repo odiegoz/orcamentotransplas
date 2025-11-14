@@ -13,14 +13,8 @@ import pandas as pd
 
 from gerador_funcoes import criar_pdf
 
-# ---- Safe rerun helper (fix for AttributeError on st.experimental_rerun) ----
+# ---- Safe rerun helper (keep for safety but we'll avoid forcing reruns) ----
 def safe_rerun():
-    """
-    Tenta chamar st.experimental_rerun() de forma segura.
-    Se não estiver disponível ou causar erro, define um flag em session_state
-    e para a execução com st.stop() — garantindo que a app será recarregada
-    na próxima interação sem levantar AttributeError.
-    """
     try:
         if hasattr(st, "experimental_rerun"):
             st.experimental_rerun()
@@ -31,7 +25,7 @@ def safe_rerun():
         st.session_state['_needs_rerun'] = True
         st.stop()
 
-# Se um fallback anterior solicitou rerun, tentamos fazê-lo agora (uma vez).
+# If a previous fallback requested a rerun, attempt once now.
 if st.session_state.get("_needs_rerun"):
     st.session_state.pop("_needs_rerun", None)
     try:
@@ -41,7 +35,6 @@ if st.session_state.get("_needs_rerun"):
             st.stop()
     except Exception:
         st.stop()
-# ---------------------------------------------------------------------------
 
 # ------------------------------------------------------------
 # CONFIG & TÍTULO
@@ -51,7 +44,6 @@ st.title("📄 Gerador de Propostas e Orçamentos")
 
 # ------------------------------------------------------------
 # DADOS DAS EMPRESAS
-# (pode deixar .png ou .jpg aqui; se não achar, o finder tenta alternativas)
 # ------------------------------------------------------------
 EMPRESAS = {
     "ISOFORMA": {
@@ -85,7 +77,7 @@ COLUNAS_PRODUTOS = [
 ]
 
 # ------------------------------------------------------------
-# CONEXÃO GOOGLE SHEETS
+# CONEXÃO GOOGLE SHEETS (cache resource + cached reads)
 # ------------------------------------------------------------
 try:
     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -94,93 +86,28 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
-# ------------------------------------------------------------
-# HELPERS (logo & watermark)
-# ------------------------------------------------------------
-def encode_image_b64(path: str | Path) -> str | None:
-    p = Path(path) if path else None
-    if not p or not p.exists():
-        return None
-    return base64.b64encode(p.read_bytes()).decode("utf-8")
+@st.cache_resource
+def get_gspread_client():
+    """
+    Cria e retorna o cliente do gspread a partir dos secrets.
+    Cacheado via st.cache_resource para ser reutilizado durante a vida do processo.
+    """
+    creds_json_text = st.secrets["gsheets"]["service_account_info"]
+    creds_json = json.loads(creds_json_text)
+    sa = gspread.service_account_from_dict(creds_json)
+    return sa
 
-def to_data_uri(path: Path | None) -> str | None:
-    if not path or not path.exists():
-        return None
-    mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
-    return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
-
-def find_watermark_path() -> Path | None:
-    candidates = [
-        Path(__file__).parent / "watermark.png",
-        Path(__file__).parent / "assets" / "watermark.png",
-        Path.cwd() / "watermark.png",
-        Path.cwd() / "assets" / "watermark.png",
-        Path("/mount/src/orcamentotransplas/watermark.png"),
-        Path("/workspaces/orcamentotransplas/watermark.png"),
-    ]
-    for p in candidates:
-        if p.exists():
-            return p
-    return None
-
-# ---------- FINDER DE LOGO (robusto para .png/.jpg e múltiplos diretórios) ----------
-def find_logo_path_from_hint(empresa_key: str, hint: str | Path | None) -> Path | None:
-    empresa_key = (empresa_key or "").upper()
-    base_names = []
-
-    # 1) do hint (se veio um path ou só um nome)
-    if hint:
-        hint_path = Path(str(hint))
-        if hint_path.name:
-            base_names.append(hint_path.name)
-
-    # 2) nomes padrão por empresa
-    nome_base = f"logo_{empresa_key.lower()}"
-    base_names += [f"{nome_base}.png", f"{nome_base}.jpg"]
-
-    # remover duplicados mantendo ordem
-    seen = set()
-    base_names = [x for x in base_names if not (x in seen or seen.add(x))]
-
-    search_dirs = [
-        Path(__file__).parent,
-        Path(__file__).parent / "assets",
-        Path.cwd(),
-        Path.cwd() / "assets",
-        Path("/workspaces/orcamentotransplas"),
-        Path("/mount/src/orcamentotransplas"),
-    ]
-
-    # Se o hint era um path absoluto, tente ele primeiro
-    if hint and Path(str(hint)).is_absolute():
-        p = Path(str(hint))
-        if p.exists():
-            return p
-
-    # Procura em todos os diretórios candidatos, para cada nome possível
-    for d in search_dirs:
-        for name in base_names:
-            p = d / name
-            if p.exists():
-                return p
-    return None
-# -------------------------------------------------------------------------------
-
-# ------------------------------------------------------------
-# FUNÇÕES DE BANCO (GOOGLE SHEETS)
-# ------------------------------------------------------------
-@st.cache_data(ttl=15)
+@st.cache_data(ttl=300)  # cache por 5 minutos
 def carregar_aba(aba_nome, colunas_esperadas):
+    """
+    Lê a aba do Google Sheets usando client cacheado. Retorna DataFrame.
+    """
     try:
-        creds_json_text = st.secrets["gsheets"]["service_account_info"]
-        creds_json = json.loads(creds_json_text)
-        sa = gspread.service_account_from_dict(creds_json)
-
+        sa = get_gspread_client()
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet(aba_nome)
 
         dados = ws.get_all_values()
-
         if len(dados) > 0:
             df = pd.DataFrame(dados[1:], columns=dados[0])
         else:
@@ -196,56 +123,54 @@ def carregar_aba(aba_nome, colunas_esperadas):
         return df
 
     except gspread.exceptions.WorksheetNotFound:
-        st.error(f"Aba '{aba_nome}' não encontrada na sua planilha! Verifique o nome.")
-        return pd.DataFrame(columns=colunas_esperadas)
-    except json.JSONDecodeError as e:
-        st.error(f"Erro ao ler o JSON das credenciais nos Secrets: {e}")
-        st.error("Verifique se o JSON em 'service_account_info' está válido.")
-        traceback.print_exc()
+        print(f"[carregar_aba] Aba '{aba_nome}' não encontrada.")
         return pd.DataFrame(columns=colunas_esperadas)
     except Exception as e:
-        st.error(f"Erro ao carregar dados da aba '{aba_nome}': {e}")
+        # Log no servidor (menos poluição na UI)
+        print(f"[carregar_aba] Erro ao carregar '{aba_nome}': {e}")
         traceback.print_exc()
         return pd.DataFrame(columns=colunas_esperadas)
 
 def get_all_clients():
+    # usa cache em session_state se disponível para evitar chamada desnecessária
+    if 'clientes_cache' in st.session_state and st.session_state['clientes_cache'] is not None:
+        return st.session_state['clientes_cache']
     df = carregar_aba("Clientes", COLUNAS_CLIENTES)
     if df.empty:
-        return []
-    return df.to_dict('records')
+        clientes = []
+    else:
+        clientes = df.to_dict('records')
+    st.session_state['clientes_cache'] = clientes
+    return clientes
 
 def get_client_by_id(client_id):
-    df = carregar_aba("Clientes", COLUNAS_CLIENTES)
-    if df.empty or 'id' not in df.columns:
-        return None
-    cliente_df = df[df['id'] == str(client_id)]
-    if not cliente_df.empty:
-        return cliente_df.to_dict('records')[0]
+    # reutiliza cache local para não re-chamar a planilha
+    clients = get_all_clients()
+    for c in clients:
+        if str(c.get('id')) == str(client_id):
+            return c
     return None
 
 def add_client(data_dict):
     try:
-        creds_json_text = st.secrets["gsheets"]["service_account_info"]
-        creds_json = json.loads(creds_json_text)
-        sa = gspread.service_account_from_dict(creds_json)
-
+        sa = get_gspread_client()
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet("Clientes")
 
         try:
             cnpj_col_index = COLUNAS_CLIENTES.index('cnpj') + 1
         except ValueError:
-            st.error("Erro crítico: Coluna 'cnpj' não encontrada.")
+            print("Erro crítico: Coluna 'cnpj' não encontrada.")
             return False
         cnpjs_existentes = ws.col_values(cnpj_col_index)
         if data_dict['cnpj'] and data_dict['cnpj'] in cnpjs_existentes:
-            st.sidebar.error("Cliente com este CNPJ já existe.")
+            # Mensagem na UI será tratada pelo chamador
             return False
 
         try:
             id_col_index = COLUNAS_CLIENTES.index('id') + 1
         except ValueError:
-            st.error("Erro crítico: Coluna 'id' não encontrada.")
+            print("Erro crítico: Coluna 'id' não encontrada.")
             return False
         ids = ws.col_values(id_col_index)[1:]
         ids_num = [int(i) for i in ids if i and i.isdigit()]
@@ -256,59 +181,64 @@ def add_client(data_dict):
         nova_linha = [data_dict.get(col, "") for col in COLUNAS_CLIENTES]
 
         ws.append_row(nova_linha)
-        st.cache_data.clear()
+
+        # Atualiza cache local (session_state) para evitar re-leitura
+        novo = {col: data_dict.get(col, "") for col in COLUNAS_CLIENTES}
+        if 'clientes_cache' not in st.session_state or st.session_state['clientes_cache'] is None:
+            st.session_state['clientes_cache'] = []
+        st.session_state['clientes_cache'].append(novo)
+
         return True
 
     except gspread.exceptions.WorksheetNotFound:
-        st.error("Aba 'Clientes' não foi encontrada na planilha. Não foi possível salvar.")
+        print("Aba 'Clientes' não foi encontrada na planilha.")
         return False
     except json.JSONDecodeError as e:
-        st.error(f"Erro ao ler o JSON das credenciais: {e}")
+        print(f"Erro ao ler o JSON das credenciais: {e}")
         traceback.print_exc()
         return False
     except Exception as e:
-        st.error("Erro ao salvar no Google Sheets:")
-        st.exception(e)
+        print("Erro ao salvar no Google Sheets (Clientes):")
+        traceback.print_exc()
         return False
 
 def get_all_products():
+    if 'produtos_cache' in st.session_state and st.session_state['produtos_cache'] is not None:
+        return st.session_state['produtos_cache']
     df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
     if df.empty:
-        return []
-    return df.to_dict('records')
+        produtos = []
+    else:
+        produtos = df.to_dict('records')
+    st.session_state['produtos_cache'] = produtos
+    return produtos
 
 def get_product_by_id(product_id):
-    df = carregar_aba("Produtos", COLUNAS_PRODUTOS)
-    if df.empty or 'id' not in df.columns:
-        return None
-    produto_df = df[df['id'] == str(product_id)]
-    if not produto_df.empty:
-        return produto_df.to_dict('records')[0]
+    products = get_all_products()
+    for p in products:
+        if str(p.get('id')) == str(product_id):
+            return p
     return None
 
 def add_product(data_dict):
     try:
-        creds_json_text = st.secrets["gsheets"]["service_account_info"]
-        creds_json = json.loads(creds_json_text)
-        sa = gspread.service_account_from_dict(creds_json)
-
+        sa = get_gspread_client()
         sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
         ws = sh.worksheet("Produtos")
 
         try:
             sku_col_index = COLUNAS_PRODUTOS.index('sku') + 1
         except ValueError:
-            st.error("Erro crítico: Coluna 'sku' não encontrada.")
+            print("Erro crítico: Coluna 'sku' não encontrada.")
             return False
         skus_existentes = ws.col_values(sku_col_index)
         if data_dict['sku'] and data_dict['sku'] in skus_existentes:
-            st.sidebar.error("Produto com este SKU já existe.")
             return False
 
         try:
             id_col_index = COLUNAS_PRODUTOS.index('id') + 1
         except ValueError:
-            st.error("Erro crítico: Coluna 'id' não encontrada.")
+            print("Erro crítico: Coluna 'id' não encontrada.")
             return False
         ids = ws.col_values(id_col_index)[1:]
         ids_num = [int(i) for i in ids if i and i.isdigit()]
@@ -319,15 +249,21 @@ def add_product(data_dict):
         nova_linha = [data_dict.get(col, "") for col in COLUNAS_PRODUTOS]
 
         ws.append_row(nova_linha)
-        st.cache_data.clear()
+
+        # Atualiza cache local
+        novo = {col: data_dict.get(col, "") for col in COLUNAS_PRODUTOS}
+        if 'produtos_cache' not in st.session_state or st.session_state['produtos_cache'] is None:
+            st.session_state['produtos_cache'] = []
+        st.session_state['produtos_cache'].append(novo)
+
         return True
 
     except gspread.exceptions.WorksheetNotFound:
-        st.error("Aba 'Produtos' não foi encontrada na planilha. Não foi possível salvar.")
+        print("Aba 'Produtos' não foi encontrada na planilha.")
         return False
     except Exception as e:
-        st.error("Erro ao salvar Produto no Google Sheets:")
-        st.exception(e)
+        print("Erro ao salvar Produto no Google Sheets:")
+        traceback.print_exc()
         return False
 
 # ------------------------------------------------------------
@@ -345,7 +281,10 @@ st.markdown("---")
 st.sidebar.title("Gerenciamento")
 st.sidebar.header("Clientes")
 try:
-    clientes = get_all_clients()
+    # Carregamento com spinner e usando cache em session_state/get_all_clients que já é otimizado
+    with st.spinner("Carregando clientes..."):
+        clientes = get_all_clients()
+
     cliente_map = {}
     if clientes:
         clientes_validos = [c for c in clientes if c.get('razao_social') and c.get('id')]
@@ -359,7 +298,7 @@ try:
         if 'cliente_id' not in st.session_state or st.session_state.cliente_id != cliente_id:
             st.session_state.cliente_id = cliente_id
             st.session_state.dados_cliente = get_client_by_id(cliente_id)
-            safe_rerun()
+            # Não forçamos rerun; form submission já causa reexecução natural.
 
     with st.sidebar.expander("➕ Adicionar Novo Cliente", expanded=False):
         with st.form("new_client_form", clear_on_submit=True):
@@ -377,9 +316,12 @@ try:
                 if not new_cliente_data['razao_social'] or not new_cliente_data['cnpj']:
                     st.sidebar.error("Razão Social e CNPJ são obrigatórios.")
                 else:
-                    if add_client(new_cliente_data):
+                    ok = add_client(new_cliente_data)
+                    if ok:
                         st.sidebar.success("Cliente salvo!")
-                        safe_rerun()
+                        # O formulário já dispara rerun natural; cache local foi atualizado em add_client()
+                    else:
+                        st.sidebar.error("Falha ao salvar cliente (ver logs).")
 except Exception as e:
     st.sidebar.error(f"Erro ao carregar clientes: {e}")
     traceback.print_exc()
@@ -405,9 +347,12 @@ try:
                 if not new_product_data['sku'] or not new_product_data['descricao']:
                     st.sidebar.error("SKU e Descrição são obrigatórios.")
                 else:
-                    if add_product(new_product_data):
+                    ok = add_product(new_product_data)
+                    if ok:
                         st.sidebar.success("Produto salvo!")
-                        safe_rerun()
+                        # cache local atualizado em add_product(); não forçamos clear_cache()
+                    else:
+                        st.sidebar.error("Falha ao salvar produto (ver logs).")
 except Exception as e:
     st.sidebar.error(f"Erro nas operações de produto: {e}")
     traceback.print_exc()
@@ -445,7 +390,7 @@ with col_dados_gerais:
     pagamento_condicao = st.text_input("Cond. Pagamento", value="28/35/42 ddl")
     pagamento_qtde_parcelas = st.number_input("Quantidade de Parcelas", min_value=1, value=3, step=1)
 
-    # ====== ALTERAÇÃO: permitir Data de Entrega não obrigatória ======
+    # Data de entrega opcional
     sem_data_entrega = st.checkbox("Sem data de entrega definida", value=False)
     if sem_data_entrega:
         pagamento_data_entrega = None
@@ -525,10 +470,9 @@ with col_itens:
                         'valor_kg': float(valor_kg_e)
                     })
                     st.session_state.editing_item = None
-                    safe_rerun()
+                    # sem rerun forçado; o form dispara reexecução natural
                 if cancelar:
                     st.session_state.editing_item = None
-                    safe_rerun()
 
     # Formulário para adicionar novo item
     with st.form(key="add_item_form", clear_on_submit=True):
@@ -564,7 +508,7 @@ with col_itens:
                     'quantidade_kg': float(quantidade_kg), 'valor_kg': float(valor_kg),
                     'ipi_item': float(impostos_ipi)
                 })
-                safe_rerun()
+                # sem rerun forçado (form já provoca reexecução)
 
     # Exibição dos itens com ações individuais
     if st.session_state.itens:
@@ -580,16 +524,14 @@ with col_itens:
                 col_a, col_b = st.columns([1, 1])
                 if col_a.button("Remover", key=f"remover_{i}"):
                     st.session_state.itens.pop(i)
-                    safe_rerun()
+                    # botões provocam reexecução natural
                 if col_b.button("Editar", key=f"editar_{i}"):
                     st.session_state.editing_item = i
-                    safe_rerun()
 
         st.markdown(f"**Total das Mercadorias: R$ {total_preview:,.2f}**")
 
         if st.button("Limpar Itens"):
             st.session_state.itens = []
-            safe_rerun()
 
 st.markdown("---")
 
@@ -673,7 +615,8 @@ if st.button("Gerar PDF do Orçamento", type="primary"):
                 else:
                     nome_arquivo_pdf = f"Orcamento_{orcamento_numero}_{cliente['razao_social'].replace(' ', '_')}.pdf"
                     try:
-                        pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=True)
+                        # debug_dump_html desligado para evitar lentidão em uso normal
+                        pdf_bytes = criar_pdf(dados, template_path="template.html", debug_dump_html=False)
                     except Exception as e:
                         st.error("Erro ao gerar o PDF (na função criar_pdf). Veja detalhes abaixo.")
                         st.exception(e)
