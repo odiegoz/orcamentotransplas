@@ -1,3 +1,4 @@
+# app.py
 import os
 import io
 import json
@@ -13,7 +14,7 @@ import pandas as pd
 
 from gerador_funcoes import criar_pdf
 
-# ---- Safe rerun helper (keep for safety but we'll avoid forcing reruns) ----
+# ---- Safe rerun helper (keep for safety but avoid forcing reruns) ----
 def safe_rerun():
     try:
         if hasattr(st, "experimental_rerun"):
@@ -35,6 +36,90 @@ if st.session_state.get("_needs_rerun"):
             st.stop()
     except Exception:
         st.stop()
+# ---------------------------------------------------------------------------
+
+# ---------------------- HELPERS: logo & watermark ----------------------------
+def encode_image_b64(path: str | Path) -> str | None:
+    p = Path(path) if path else None
+    if not p or not p.exists():
+        return None
+    try:
+        return base64.b64encode(p.read_bytes()).decode("utf-8")
+    except Exception:
+        return None
+
+def to_data_uri(path: Path | None) -> str | None:
+    if not path or not path.exists():
+        return None
+    mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+    try:
+        return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
+    except Exception:
+        return None
+
+def find_watermark_path() -> Path | None:
+    candidates = [
+        Path(__file__).parent / "watermark.png",
+        Path(__file__).parent / "assets" / "watermark.png",
+        Path.cwd() / "watermark.png",
+        Path.cwd() / "assets" / "watermark.png",
+        Path("/mount/src/orcamentotransplas/watermark.png"),
+        Path("/workspaces/orcamentotransplas/watermark.png"),
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return None
+
+def find_logo_path_from_hint(empresa_key: str, hint: str | Path | None) -> Path | None:
+    """
+    Procura um arquivo de logo a partir de um hint (nome ou caminho) e por nomes
+    padrão como logo_<empresa>.png / .jpg em diretórios comuns.
+    Retorna Path ou None.
+    """
+    empresa_key = (empresa_key or "").upper()
+    base_names = []
+
+    if hint:
+        try:
+            hint_path = Path(str(hint))
+            if hint_path.name:
+                base_names.append(hint_path.name)
+        except Exception:
+            pass
+
+    nome_base = f"logo_{empresa_key.lower()}"
+    base_names += [f"{nome_base}.png", f"{nome_base}.jpg"]
+
+    # remover duplicados mantendo ordem
+    seen = set()
+    base_names = [x for x in base_names if not (x in seen or seen.add(x))]
+
+    search_dirs = [
+        Path(__file__).parent,
+        Path(__file__).parent / "assets",
+        Path.cwd(),
+        Path.cwd() / "assets",
+        Path("/workspaces/orcamentotransplas"),
+        Path("/mount/src/orcamentotransplas"),
+    ]
+
+    # Se o hint era um path absoluto, tenta primeiro
+    if hint:
+        try:
+            hint_path = Path(str(hint))
+            if hint_path.is_absolute() and hint_path.exists():
+                return hint_path
+        except Exception:
+            pass
+
+    for d in search_dirs:
+        for name in base_names:
+            p = d / name
+            if p.exists():
+                return p
+    return None
+# ---------------------------------------------------------------------------
 
 # ------------------------------------------------------------
 # CONFIG & TÍTULO
@@ -298,7 +383,7 @@ try:
         if 'cliente_id' not in st.session_state or st.session_state.cliente_id != cliente_id:
             st.session_state.cliente_id = cliente_id
             st.session_state.dados_cliente = get_client_by_id(cliente_id)
-            # Não forçamos rerun; form submission já causa reexecução natural.
+            # Não forçamos rerun; o formulário/navegador já provoca reexecução natural.
 
     with st.sidebar.expander("➕ Adicionar Novo Cliente", expanded=False):
         with st.form("new_client_form", clear_on_submit=True):
@@ -319,7 +404,6 @@ try:
                     ok = add_client(new_cliente_data)
                     if ok:
                         st.sidebar.success("Cliente salvo!")
-                        # O formulário já dispara rerun natural; cache local foi atualizado em add_client()
                     else:
                         st.sidebar.error("Falha ao salvar cliente (ver logs).")
 except Exception as e:
@@ -350,7 +434,6 @@ try:
                     ok = add_product(new_product_data)
                     if ok:
                         st.sidebar.success("Produto salvo!")
-                        # cache local atualizado em add_product(); não forçamos clear_cache()
                     else:
                         st.sidebar.error("Falha ao salvar produto (ver logs).")
 except Exception as e:
@@ -470,7 +553,6 @@ with col_itens:
                         'valor_kg': float(valor_kg_e)
                     })
                     st.session_state.editing_item = None
-                    # sem rerun forçado; o form dispara reexecução natural
                 if cancelar:
                     st.session_state.editing_item = None
 
@@ -524,7 +606,6 @@ with col_itens:
                 col_a, col_b = st.columns([1, 1])
                 if col_a.button("Remover", key=f"remover_{i}"):
                     st.session_state.itens.pop(i)
-                    # botões provocam reexecução natural
                 if col_b.button("Editar", key=f"editar_{i}"):
                     st.session_state.editing_item = i
 

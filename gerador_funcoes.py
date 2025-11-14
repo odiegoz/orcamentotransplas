@@ -2,11 +2,9 @@
 """
 Gerador de PDF usando Jinja2 + WeasyPrint.
 
-Principais mudanças:
-- NÃO usa streamlit dentro de criar_pdf (sem st.error/st.caption).
-- Em vez de retornar None em erro, lança exceções claras (RuntimeError) com a causa original.
-- debug_dump_html=True: grava arquivo HTML em /tmp (ou cwd) para inspeção e imprime informação útil.
-- Logs mínimos via print() e traceback.print_exc() para facilitar troubleshooting em logs do Streamlit.
+- Não usa streamlit.
+- Em caso de erro, lança RuntimeError com causa preservada.
+- debug_dump_html=True grava HTML renderizado em /tmp (ou cwd) para inspeção.
 """
 
 import importlib
@@ -16,19 +14,24 @@ import base64
 import traceback
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-# WeasyPrint import (pode lançar ImportError)
-try:
-    from weasyprint import HTML, CSS
-    _WEASYPRINT_VERSION = getattr(importlib.import_module("weasyprint"), "__version__", "unknown")
-except Exception as e:
-    # não suprimir aqui — propagar depois quando necessário
-    HTML = None
-    CSS = None
-    _WEASYPRINT_VERSION = None
+# NOTA: importamos weasyprint de forma lazy dentro de _check_weasyprint()
+_WEASYPRINT_VERSION = None
 
 def _check_weasyprint():
-    if HTML is None or CSS is None:
-        raise RuntimeError("WeasyPrint não disponível. Instale 'weasyprint' e dependências do sistema (libpango, libcairo etc.).")
+    """
+    Importa weasyprint quando necessário. Lança RuntimeError se não disponível.
+    """
+    global _WEASYPRINT_VERSION
+    try:
+        weasy = importlib.import_module("weasyprint")
+        # importa classes necessárias
+        from weasyprint import HTML, CSS  # noqa: F401
+        _WEASYPRINT_VERSION = getattr(weasy, "__version__", "unknown")
+    except Exception as e:
+        raise RuntimeError(
+            "WeasyPrint não disponível. Instale 'weasyprint' e dependências do sistema "
+            "(libcairo2, libpango, libgdk-pixbuf2.0-0, etc)."
+        ) from e
 
 def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
     """
@@ -39,10 +42,9 @@ def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
     dados : dict
         Contexto enviado para o template Jinja2.
     template_path : str
-        Caminho relativo ou absoluto para o arquivo HTML/Jinja template.
+        Caminho relativo (a partir deste módulo) ou absoluto para o arquivo HTML/Jinja template.
     debug_dump_html : bool
-        Se True, grava o HTML renderizado em arquivo temporário para depuração
-        e imprime o caminho no stdout/logs.
+        Se True, grava o HTML renderizado em arquivo temporário para depuração.
 
     Retorna
     -------
@@ -55,7 +57,10 @@ def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
         Em qualquer erro durante renderização/geração com mensagem descritiva.
     """
     try:
+        # Verifica disponibilidade do WeasyPrint (import lazy)
         _check_weasyprint()
+        # Agora que a lib está instalada, importe as classes que usaremos
+        from weasyprint import HTML, CSS
 
         # determina diretório onde procurar o template
         script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -92,7 +97,6 @@ def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
         # Opção de depuração: gravar o HTML em arquivo para inspecionar
         if debug_dump_html:
             try:
-                # tenta gravar em /tmp, senão cwd
                 base_tmp = tempfile.gettempdir() or os.getcwd()
                 dump_name = f"orcamento_debug_{os.getpid()}_{int(os.stat(__file__).st_mtime)}.html"
                 dump_path = os.path.join(base_tmp, dump_name)
@@ -103,7 +107,7 @@ def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
                 print("[criar_pdf] Falha ao gravar HTML de debug.")
                 traceback.print_exc()
 
-        # cria objeto HTML com base_url apontando para script_dir (resolve caminhos relativos de assets)
+        # cria objeto HTML com base_url apontando para template_dir (resolve caminhos relativos de assets)
         try:
             html_obj = HTML(string=html_renderizado, base_url=template_dir)
         except Exception as e:
@@ -137,20 +141,29 @@ def criar_pdf(dados, template_path="template.html", debug_dump_html=False):
             raise RuntimeError("Erro inesperado ao gerar PDF.") from e
 
 
-# Opcional: helper para retornar versões (útil para debug externo)
 def get_versions():
     """
-    Retorna um dict com versões relevantes (WeasyPrint, pydyf se instalaram, etc).
+    Retorna um dict com versões relevantes (WeasyPrint, pydyf se instalado, etc).
     """
     versions = {}
     try:
-        versions['weasyprint'] = _WEASYPRINT_VERSION or "not-installed"
+        # se weasyprint foi importado com sucesso, tenta buscar versão
+        if _WEASYPRINT_VERSION:
+            versions['weasyprint'] = _WEASYPRINT_VERSION
+        else:
+            # tenta importar só para pegar versão (sem erro fatal)
+            try:
+                w = importlib.import_module("weasyprint")
+                versions['weasyprint'] = getattr(w, "__version__", "unknown")
+            except Exception:
+                versions['weasyprint'] = "not-installed"
     except Exception:
         versions['weasyprint'] = "unknown"
+
     try:
-        import importlib
         pydyf = importlib.import_module("pydyf")
         versions['pydyf'] = getattr(pydyf, "__version__", "unknown")
     except Exception:
         versions['pydyf'] = "not-installed"
+
     return versions
