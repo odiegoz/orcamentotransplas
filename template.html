@@ -170,17 +170,18 @@
     {% for item in itens %}
     <tr>
       <td>
-        <div class="item-desc">{{ item.descricao }}</div>
-        <div class="item-sub">
-          <strong>Medida:</strong> {{ item.medida }} |
-          <strong>Cor:</strong> {{ item.cor_codigo }} |
-          <strong>Acab:</strong> {{ item.acabamento }} |
-          <strong>Filme:</strong> {{ item.filme }}
-        </div>
-        <div class="item-sub">
-          {{ (item.quantidade_kg | round(0) | int) }} KG × {{ brl(item.valor_kg) }} — IPI {{ "%.2f"|format(item.ipi_item) }}%
-        </div>
-      </td>
+  <div class="item-desc">{{ item.descricao }}</div>
+  <div class="item-sub">
+    <strong>Medida:</strong> {{ item.medida }} |
+    <strong>Cor:</strong> {{ item.cor_codigo }} |
+    <strong>Acab:</strong> {{ item.acabamento }} |
+    <strong>Filme:</strong> {{ item.filme }}
+  </div>
+  <div class="item-sub">
+    {{ (item.quantidade_kg | round(0) | int) }} KG × {{ brl(item.valor_kg) }}
+  </div>
+</td>
+
       <td class="value-cell">{{ brl(item.quantidade_kg * item.valor_kg) }}</td>
     </tr>
     {% endfor %}
@@ -222,4 +223,5 @@
 </div>
 
 </body>
+
 </html>
