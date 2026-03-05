@@ -410,6 +410,38 @@ except Exception as e:
     st.sidebar.error(f"Erro ao carregar clientes: {e}")
     traceback.print_exc()
 
+def update_client_condicao(client_id, nova_condicao):
+    try:
+        sa = get_gspread_client()
+        sh = sa.open_by_url(st.secrets["gsheets"]["spreadsheet"])
+        ws = sh.worksheet("Clientes")
+
+        dados = ws.get_all_values()
+        if not dados:
+            return False
+
+        header = dados[0]
+        linhas = dados[1:]
+
+        try:
+            id_index = header.index("id")
+            cond_index = header.index("condicao_pagamento")
+        except ValueError:
+            print("Colunas necessárias não encontradas (id / condicao_pagamento).")
+            return False
+
+        for i, linha in enumerate(linhas):
+            if str(linha[id_index]) == str(client_id):
+                ws.update_cell(i + 2, cond_index + 1, nova_condicao)
+                return True
+
+        return False
+
+    except Exception:
+        print("Erro ao atualizar condição de pagamento:")
+        traceback.print_exc()
+        return False
+
 # ------------------------------------------------------------
 # SIDEBAR: PRODUTOS
 # ------------------------------------------------------------
@@ -473,6 +505,20 @@ with col_dados_gerais:
     default_cond = (dados_cliente_atual.get('condicao_pagamento') if dados_cliente_atual else "") or "28/35/42 ddl"
     pagamento_condicao = st.text_input("Cond. Pagamento", value=default_cond)
     pagamento_qtde_parcelas = st.number_input("Quantidade de Parcelas", min_value=1, value=3, step=1)
+    if dados_cliente_atual:
+        if st.button("💾 Salvar condição no cadastro do cliente"):
+            ok = update_client_condicao(
+            st.session_state.get("cliente_id"),
+            pagamento_condicao
+        )
+
+        if ok:
+            st.success("Condição de pagamento atualizada no cadastro.")
+            st.session_state['clientes_cache'] = None
+            st.cache_data.clear()
+            st.session_state['dados_cliente'] = get_client_by_id(st.session_state.get("cliente_id"))
+        else:
+            st.error("Não foi possível atualizar o cliente.")
 
     # Data de entrega opcional
     sem_data_entrega = st.checkbox("Sem data de entrega definida", value=False)
