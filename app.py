@@ -502,16 +502,16 @@ with col_dados_gerais:
     }
 
     st.subheader("Condições e Entrega")
-    default_cond = (dados_cliente_atual.get('condicao_pagamento') if dados_cliente_atual else "") or "28/35/42 ddl"
-    pagamento_condicao = st.text_input("Cond. Pagamento", value=default_cond)
-    pagamento_qtde_parcelas = st.number_input("Quantidade de Parcelas", min_value=1, value=3, step=1)
-    if dados_cliente_atual:
-        if st.button("💾 Salvar condição no cadastro do cliente"):
-            ok = update_client_condicao(
+default_cond = (dados_cliente_atual.get('condicao_pagamento') if dados_cliente_atual else "") or "28/35/42 ddl"
+pagamento_condicao = st.text_input("Cond. Pagamento", value=default_cond)
+pagamento_qtde_parcelas = st.number_input("Quantidade de Parcelas", min_value=1, value=3, step=1)
+
+if dados_cliente_atual:
+    if st.button("💾 Salvar condição no cadastro do cliente"):
+        ok = update_client_condicao(
             st.session_state.get("cliente_id"),
             pagamento_condicao
         )
-
         if ok:
             st.success("Condição de pagamento atualizada no cadastro.")
             st.session_state['clientes_cache'] = None
