@@ -154,7 +154,7 @@ EMPRESAS = {
 # ------------------------------------------------------------
 COLUNAS_CLIENTES = [
     'id', 'razao_social', 'endereco', 'bairro', 'cidade', 'uf',
-    'cep', 'cnpj', 'inscricao_estadual', 'telefone', 'contato', 'email', 'data_cadastro'
+    'cep', 'cnpj', 'inscricao_estadual', 'telefone', 'contato', 'email', 'condicao_pagamento', 'data_cadastro'
 ]
 COLUNAS_PRODUTOS = [
     'id', 'sku', 'descricao', 'filme', 'cor_codigo', 'acabamento',
@@ -394,7 +394,7 @@ try:
                 'cidade': st.text_input("Cidade"), 'uf': st.text_input("UF"), 'cep': st.text_input("CEP"),
                 'inscricao_estadual': st.text_input("Inscrição Estadual"),
                 'telefone': st.text_input("Telefone"), 'contato': st.text_input("Contato"),
-                'email': st.text_input("E-mail")
+                'email': st.text_input("E-mail"), 'condicao_pagamento': st.text_input("Condição de Pagamento (padrão)", value="")
             }
             submitted = st.form_submit_button("Salvar Novo Cliente")
             if submitted:
@@ -470,7 +470,8 @@ with col_dados_gerais:
     }
 
     st.subheader("Condições e Entrega")
-    pagamento_condicao = st.text_input("Cond. Pagamento", value="28/35/42 ddl")
+    default_cond = (dados_cliente_atual.get('condicao_pagamento') if dados_cliente_atual else "") or "28/35/42 ddl"
+    pagamento_condicao = st.text_input("Cond. Pagamento", value=default_cond)
     pagamento_qtde_parcelas = st.number_input("Quantidade de Parcelas", min_value=1, value=3, step=1)
 
     # Data de entrega opcional
